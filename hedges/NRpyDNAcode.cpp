@@ -204,7 +204,7 @@ void setparams_DPU()
 	//	DPU_ASSERT(dpu_broadcast_to(dpu_set, "MAXSEQ", 0, &MAXSEQ, sizeof(MAXSEQ), DPU_XFER_DEFAULT));
 	DPU_ASSERT(dpu_broadcast_to(dpu_set, "NSTAK", 0, &NSTAK, sizeof(NSTAK), DPU_XFER_DEFAULT));
 	DPU_ASSERT(dpu_broadcast_to(dpu_set, "HLIMIT", 0, &HLIMIT, sizeof(HLIMIT), DPU_XFER_DEFAULT));
-	DPU_ASSERT(dpu_broadcast_to(dpu_set, "reward", 0, &reward, sizeof(double), DPU_XFER_DEFAULT));
+	DPU_ASSERT(dpu_broadcast_to(dpu_set, "_reward", 0, &reward, sizeof(double), DPU_XFER_DEFAULT));
 }
 
 void setparams_C(int32_t nsalt, int32_t maxseq, int32_t nstak, int32_t hlimit)
@@ -830,14 +830,14 @@ void heap_compare_dpu_host()
 	printf("HOST/DPU HEAP EQUAL ? nb %u : OK ? %d \n", heap.ks, comp);
 }
 
+#define FP_TO_DOUBLE(i) (double)((double)(i) / ((double)(1 << DECODER_QUANT_FRAC_BITS)))
 void heap_display(uint64_t nfinal_, uint64_t dpu_nfinal_, uint64_t N)
 {
 	for (uint64_t i = 0; i < N; i++)
 	{
-		printf("HEAP (HOST,DPU) [%lu][%lu] [%d]  %.5f,%.5f  %u,%u\n", nfinal_, dpu_nfinal_, i, heap.ar[nfinal_], dpu_scores[dpu_nfinal_], (unsigned)(heap.br[nfinal_]), (unsigned)(dpu_ptr[dpu_nfinal_]));
+		double dpu_score_requant = FP_TO_DOUBLE(heap.ar[nfinal_]);
+		printf("HEAP (HOST,DPU) [%lu][%lu] [%d]  %.5f,%.5f  %u,%u\n", nfinal_, dpu_nfinal_, i, heap.ar[nfinal_], dpu_score_requant, (unsigned)(heap.br[nfinal_]), (unsigned)(dpu_ptr[dpu_nfinal_]));
 		/*hypothesis_display((unsigned)(heap.br[i]));*/
-		// dpu_nfinal_--;
-		// nfinal_++;
 		dpu_nfinal_++;
 		nfinal_++;
 	}
@@ -1058,15 +1058,33 @@ static inline double my_clock(void)
 	return (1.0e-9 * t.tv_nsec + t.tv_sec);
 }
 
-MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, uint64_t &perf_cycles_or_inst)
+MatUchar decode_DPU_(MatUchar &codetext,
+					 Int nmessbits,
+					 Int perf_type,
+					 uint64_t &nr_tasklets,
+					 uint32_t &clocks_per_sec,
+					 uint64_t &total_cycles,
+					 uint64_t &hypcompute_cycles,
+					 uint64_t &io_cycles,
+					 uint64_t &push_cycles,
+					 uint64_t &pop_cycles,
+					 uint64_t &decode_cycles,
+					 uint64_t &hashfunc_cycles,
+					 uint64_t &penality_cycles,
+					 uint64_t &hypcompute_first_section_cycles,
+					 uint64_t &hypload_cycles,
+					 double &host_time,
+					 uint64_t &nbyte_written_heap,
+					 uint64_t &nbyte_loaded_heap,
+					 uint64_t &nbyte_written,
+					 uint64_t &nbyte_loaded)
 {
 	struct dpu_set_t dpu;
 
 	xitf->restore();
-
-	DPU_ASSERT(dpu_broadcast_to(dpu_set, "perf_cycles_or_inst", 0, &perf_cycles_or_inst, sizeof(uint64_t), DPU_XFER_DEFAULT));
-	std::cout << "[DECODE DPU HOST FUNC][NR_DPUS=" << NR_DPUS << "][NR_TASKLETS=" << NR_TASKLETS << "]"
-			  << "[NR_STRANDS=" << codetext.nrows() << "]\n";
+	std::cout << "(dpu decoder) [NR_DPUS=" << NR_DPUS << "][NR_TASKLETS=" << NR_TASKLETS << "]"
+			  << "[NR_STRANDS=" << codetext.nrows() << "]"
+			  << "[PERF_TYPE=" << perf_type << "]\n";
 
 	assert(NR_DPUS == 1);
 
@@ -1083,10 +1101,11 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, uint64_t &perf_cycles_or
 
 	uint64_t nmessbit_ = nmessbits;
 	DPU_ASSERT(dpu_broadcast_to(dpu_set, "nmessbit", 0, &nmessbit_, sizeof(uint64_t), DPU_XFER_DEFAULT));
+	uint64_t perf_type_ = (uint64_t)perf_type;
+	DPU_ASSERT(dpu_broadcast_to(dpu_set, "perf_type", 0, &perf_type_, sizeof(uint64_t), DPU_XFER_DEFAULT));
+	DPU_ASSERT(dpu_broadcast_to(dpu_set, "perf_bw", 0, &perf_type_, sizeof(uint64_t), DPU_XFER_DEFAULT));
 	double start = my_clock();
-
 	DPU_ASSERT(dpu_launch(dpu_set, DPU_ASYNCHRONOUS));
-
 	/**
 	 * get decoded sequences
 	 **/
@@ -1094,33 +1113,168 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, uint64_t &perf_cycles_or
 	uint64_t nmessbytes = (nmessbits + 7) / 8;
 	dpu_sync(dpu_set);
 	double end = my_clock();
+	host_time = end - start;
 	uint64_t decoded_packet_shapes[] = {codetext.nrows(), nmessbytes};
 	dpu::Tensor2d<Uchar> decoded_packet_dpu(NR_DPUS, decoded_packet_shapes);
 	xitf->get(decoded_packet_dpu);
 
-	// retrieve number of cycles on DPU
-	uint32_t perf_count;
+	// nr tasklets
 	DPU_FOREACH(dpu_set, dpu)
 	{
-		DPU_ASSERT(
-			dpu_copy_from(dpu, "perf_count", 0, &perf_count, sizeof(uint32_t)));
+		DPU_ASSERT(dpu_copy_from(dpu, "nr_tasklets", 0, &nr_tasklets, sizeof(uint64_t)));
 	}
-	perf_cycles_or_inst = perf_count;
 
-	// retrieve DPU frequency
-	uint32_t clocks_per_sec;
+	// retrieve DPU frequenc
 	DPU_FOREACH(dpu_set, dpu)
 	{
 		DPU_ASSERT(dpu_copy_from(dpu, "CLOCKS_PER_SEC", 0, &clocks_per_sec,
 								 sizeof(uint32_t)));
 	}
-	if (perf_cycles_or_inst)
-		printf("DPU Mega cycles: %u\n", perf_count / 1000000);
-	else
-		printf("DPU inst: %u\n", perf_count);
 
-	printf("DPU time: %.2e secs.\n", (double)perf_count / clocks_per_sec);
-	printf("Host elapsed time: %.2e secs.\n", end - start);
+	// total cycles/inst
+	if (perf_type)
+	{
+		uint64_t total_cycles_[NR_TASKLETS];
+		DPU_FOREACH(dpu_set, dpu)
+		{
+			DPU_ASSERT(
+				dpu_copy_from(dpu, "total_cycles", 0, &total_cycles_, NR_TASKLETS * sizeof(uint64_t)));
+		}
+		uint64_t total_cycles__ = 0;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "total cycles ["<< i <<"]" <<  total_cycles_[i]  << "\n";
+			total_cycles__ += total_cycles_[i];
+		}
+		total_cycles = total_cycles__;
+
+		uint64_t nb_cycles_pop[NR_TASKLETS];
+		uint64_t nb_cycles_push[NR_TASKLETS];
+		uint64_t nb_cycles_io[NR_TASKLETS];
+		uint64_t nb_cycles_hypcompute[NR_TASKLETS];
+		uint64_t nb_cycles_decode[NR_TASKLETS];
+		uint64_t nb_cycles_hashfunc[NR_TASKLETS];
+		uint64_t nb_cycles_penality[NR_TASKLETS];
+		uint64_t nb_cycles_hypcompute_first_section[NR_TASKLETS];
+		uint64_t nb_cycles_hypload[NR_TASKLETS];
+		uint64_t nb_bytes_loaded[NR_TASKLETS];
+		uint64_t nb_bytes_written[NR_TASKLETS];
+		uint64_t nb_bytes_loaded_heap[NR_TASKLETS];
+		uint64_t nb_bytes_written_heap[NR_TASKLETS];
+
+		DPU_FOREACH(dpu_set, dpu)
+		{
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_pop", 0, &nb_cycles_pop,
+									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_push", 0, &nb_cycles_push,
+									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_io", 0, &nb_cycles_io,
+									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hypcompute", 0, &nb_cycles_hypcompute,
+									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_decode", 0, &nb_cycles_decode,
+									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hashfunc", 0, &nb_cycles_hashfunc,
+									 NR_TASKLETS * sizeof(uint64_t)));
+
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_penality", 0, &nb_cycles_penality,
+									 NR_TASKLETS * sizeof(uint64_t)));
+
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hypcompute_first_section", 0, &nb_cycles_hypcompute_first_section,
+									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hypload", 0, &nb_cycles_hypload,
+									 NR_TASKLETS * sizeof(uint64_t)));
+
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_loaded_heap", 0, &nb_bytes_loaded_heap,
+									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_written_heap", 0, &nb_bytes_written_heap,
+									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_loaded", 0, &nb_bytes_loaded,
+									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_written", 0, &nb_bytes_written,
+									 NR_TASKLETS * sizeof(uint64_t)));
+		}
+		uint64_t hypcompute_time = 0;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nb_cycles_hypcompute [" << i <<"] " <<  nb_cycles_hypcompute[i]<< "\n";
+			hypcompute_time += nb_cycles_hypcompute[i];
+		}
+		uint64_t io_time = 0;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nb_cycles_io [" << i <<"] " << nb_cycles_io[i]<< "\n";
+			io_time += nb_cycles_io[i];
+		}
+		uint64_t push_time = 0;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nb_cycles_push [" << i <<"] "<<  nb_cycles_push[i]<< "\n";
+			push_time += nb_cycles_push[i];
+		}
+		uint64_t pop_time = 0;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			pop_time += nb_cycles_pop[i];
+		}
+		uint64_t decode_time = 0;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nb_cycles_decode [" << i <<"] " <<  nb_cycles_decode[i]<< "\n";
+			decode_time += nb_cycles_decode[i];
+		}
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nb_cycles_hashfunc [" << i <<"] " <<  nb_cycles_hashfunc[i]<< "\n";
+			hashfunc_cycles += nb_cycles_hashfunc[i];
+		}
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "penality_cycles [" << i <<"] " <<  nb_cycles_penality[i]<< "\n";
+			penality_cycles += nb_cycles_penality[i];
+		}
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nb_cycles_hypcompute_first_section [" << i <<"] " <<  nb_cycles_hypcompute_first_section[i]<< "\n";
+			hypcompute_first_section_cycles += nb_cycles_hypcompute_first_section[i];
+		}
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nb_cycles_hashfunc [" << i <<"] " <<  nb_cycles_hashfunc[i]<< "\n";
+			hypload_cycles += nb_cycles_hypload[i];
+		}
+
+		// uint64_t nbyte_written_heap;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nb_cycles_decode [" << i <<"] " <<  nb_cycles_decode[i]<< "\n";
+			nbyte_written_heap += nb_bytes_written_heap[i];
+		}
+		// uint64_t nbyte_loaded_heap;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nb_cycles_decode [" << i <<"] " <<  nb_cycles_decode[i]<< "\n";
+			nbyte_loaded_heap += nb_bytes_loaded_heap[i];
+		}
+		// uint64_t nbyte_written;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nbyte_written [" << i <<"] " <<  nb_bytes_written[i] << "\n";
+			nbyte_written += nb_bytes_written[i];
+		}
+		// uint64_t nbyte_loaded;
+		for (uint64_t i = 0; i < NR_TASKLETS; i++)
+		{
+			// std::cerr << "nbyte_loaded [" << i <<"] " <<  nb_bytes_loaded[i] << "\n";
+			nbyte_loaded += nb_bytes_loaded[i];
+		}
+
+		decode_cycles = decode_time;
+		io_cycles = io_time;
+		hypcompute_cycles = hypcompute_time;
+		push_cycles = push_time;
+		pop_cycles = pop_time;
+	}
 
 	/**
 	 * pack decoded bits
@@ -1157,7 +1311,7 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, uint64_t &perf_cycles_or
 		// 	DPU_ASSERT(dpu_copy_from(dpu, "dpu_nfinal", 0, (uint8_t *)&dpu_nfinal, sizeof(uint64_t)));
 		// }
 		heap_compare_dpu_host();
-		// heap_display(0, 0, 200);
+		//  heap_display(0, 0, 200);
 	}
 
 	if (ENABLE_TEST_DPU_HEAP)
@@ -1195,16 +1349,51 @@ static PyObject *decode_DPU(PyObject *self, PyObject *pyargs)
 		nmessbits = 0;
 	}
 	nmessbits = NRpyInt(args[1]);
-	Int perf_cycle_or_inst_ = NRpyInt(args[2]);
-	uint64_t perf_cycle_or_inst = perf_cycle_or_inst_;
+	Int perf_type = NRpyInt(args[2]);
 	if (PyArray_TYPE(args[0]) != PyArray_UBYTE)
 		NRpyException("decode requires array with dtype=uint8 \n");
 
 	MatUchar codetext(args[0]);
 
-	std::cerr << " perf cycl ?. " << perf_cycle_or_inst << "\n";
-	MatUchar plaintext = decode_DPU_(codetext, nmessbits, perf_cycle_or_inst);
-	std::cerr << " perf out " << perf_cycle_or_inst << "\n";
+	uint64_t nr_tasklets;
+	uint32_t clocks_per_sec;
+	uint64_t total_cycles;
+	uint64_t hypcompute_cycles;
+	uint64_t io_cycles;
+	uint64_t push_cycles;
+	uint64_t pop_cycles;
+	uint64_t decode_cycles;
+	uint64_t hashfunc_cycles = 0;
+	uint64_t penality_cycles = 0;
+	uint64_t hypcompute_first_section_cycles = 0;
+	uint64_t hypload_cycles = 0;
+	double host_time;
+	uint64_t nbyte_written_heap = 0;
+	uint64_t nbyte_loaded_heap = 0;
+	uint64_t nbyte_written = 0;
+	uint64_t nbyte_loaded = 0;
+
+	MatUchar plaintext = decode_DPU_(codetext,
+									 nmessbits,
+									 perf_type,
+									 nr_tasklets,
+									 clocks_per_sec,
+									 total_cycles,
+									 hypcompute_cycles,
+									 io_cycles,
+									 push_cycles,
+									 pop_cycles,
+									 decode_cycles,
+									 hashfunc_cycles,
+									 penality_cycles,
+									 hypcompute_first_section_cycles,
+									 hypload_cycles,
+									 host_time,
+									 nbyte_written_heap,
+									 nbyte_loaded_heap,
+									 nbyte_written,
+									 nbyte_loaded);
+
 	return NRpyTuple(
 		NRpyObject(errcode),
 		NRpyObject(plaintext),
@@ -1212,7 +1401,23 @@ static PyObject *decode_DPU(PyObject *self, PyObject *pyargs)
 		NRpyObject(finalscore),
 		NRpyObject(finaloffset),
 		NRpyObject(finalseq),
-		NRpyObject((Ullong)(perf_cycle_or_inst)),
+		NRpyObject((Ullong)(nr_tasklets)),
+		NRpyObject((Ullong)(clocks_per_sec)),
+		NRpyObject((Doub)(host_time)),
+		NRpyObject((Ullong)(total_cycles)),
+		NRpyObject((Ullong)(hypcompute_cycles)),
+		NRpyObject((Ullong)(io_cycles)),
+		NRpyObject((Ullong)(push_cycles)),
+		NRpyObject((Ullong)(pop_cycles)),
+		NRpyObject((Ullong)(decode_cycles)),
+		NRpyObject((Ullong)(hashfunc_cycles)),
+		NRpyObject((Ullong)(penality_cycles)),
+		NRpyObject((Ullong)(hypcompute_first_section_cycles)),
+		NRpyObject((Ullong)(hypload_cycles)),
+		NRpyObject((Ullong)(nbyte_written_heap)),
+		NRpyObject((Ullong)(nbyte_loaded_heap)),
+		NRpyObject((Ullong)(nbyte_written)),
+		NRpyObject((Ullong)(nbyte_loaded)),
 		NULL);
 }
 
@@ -1236,7 +1441,11 @@ static PyObject *decode(PyObject *self, PyObject *pyargs)
 	if (PyArray_TYPE(args[0]) != PyArray_UBYTE)
 		NRpyException("decode requires array with dtype=uint8 \n");
 	GF4word codetext(args[0]);
+	double host_time;
+	double start = my_clock();
 	VecUchar plaintext = decode_C(codetext, nmessbits);
+	double end = my_clock();
+	host_time = end - start;
 	return NRpyTuple(
 		NRpyObject(errcode),
 		NRpyObject(plaintext),
@@ -1244,6 +1453,7 @@ static PyObject *decode(PyObject *self, PyObject *pyargs)
 		NRpyObject(finalscore),
 		NRpyObject(finaloffset),
 		NRpyObject(finalseq),
+		NRpyObject(Doub(host_time)),
 		NULL);
 }
 

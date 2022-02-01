@@ -1,0 +1,145 @@
+Tasklet Balance Quality %  0.958496842275
+Cyc/Ins eff %  0.772735691902
+[DPU][PERF] Host Time
+10.51 secs
+[DPU][PERF] DpuTime
+10.08 secs
+[DPU][PERF] MegaCycles
+2687.57
+[DPU][PERF] MegaInstructions
+2076.78
+[DPU][PERF] Eff % 
+0.77
+[DPU][PERF] IO (MegaCycle,  %) 
+0.07       0.00 
+[DPU][PERF] pop (MegaCycle,  %) 
+305.97      11.38 
+[DPU][PERF] decode (MegaCycle,  %) 
+2686.47      99.96 
+[DPU][PERF] push (MegaCycle,  %) 
+546.91      20.35 
+[DPU][PERF] hypcompute (MegaCycle,  %) 
+1114.00      41.45 
+[DPU][PERF] IO (Eff %) 
+0.19 
+[DPU][PERF] pop (Eff %) 
+0.73 
+[DPU][PERF] decode (Eff %) 
+0.77 
+[DPU][PERF] push (Eff %) 
+0.74  
+[DPU][PERF] hypcompute (Eff %) 
+0.83 
+[DPU][PERF] hypcompute (Inst ) 
+14805966112.00 
+[DPU][PERF] hypcompute (Cyc ) 
+17824077152.00 
+[DPU][BW] W (Gbytes) (heap) 
+10.69  
+[DPU][BW] R (Gbytes) (heap)  
+4.05 
+[DPU][BW] W (Gbytes) (core func) 
+2.70 
+[DPU][BW] R (Gbytes) (core func) 
+3.81 
+[DPU][BW] W (Gbytes) (global) 
+13.39  
+[DPU][BW] R (Gbytes)(global) 
+7.85  
+[DPU][BW] W BW (Gbytes/sec) (heap) 
+1.06  
+[DPU][BW] R BW (Gbytes/sec) (heap)  
+0.40 
+[DPU][BW] W BW (Gbytes/sec) (core func) 
+0.27 
+[DPU][BW] R BW (Gbytes/sec) (core func) 
+0.38 
+[DPU][BW] W BW (Gbytes/sec) (global) 
+1.33  
+[DPU][BW] R BW (Gbytes/sec) (global) 
+0.78  
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=16][NR_STRANDS=255][PERF_TYPE=0]
+host => [[  0   0  76 ...,  73   0  30]
+ [  0   1  83 ..., 115   0   0]
+ [  0   2  32 ..., 114   0   0]
+ ..., 
+ [  0 252  29 ..., 103   0   0]
+ [  0 253   9 ...,   0   0   0]
+ [  0 254 225 ...,   0   0   0]]
+dpu  => [[  0   0  76 ...,  73   0  30]
+ [  0   1  83 ..., 115   0   0]
+ [  0   2  32 ..., 114   0   0]
+ ..., 
+ [  0 252  29 ..., 103   0   0]
+ [  0 253   9 ...,   0   0   0]
+ [  0 254 225 ...,   0   0   0]]
+[HEDGES][DECODER][PACKET][NSTRANDS= 50000 ] 81
+
+**************
+*** Global ***
+**************
+                                 xferItf_save (#occ =        0) = 	0.000000
+                              xferItf_restore (#occ =        0) = 	0.000000
+                                 xferItf_init (#occ =        0) = 	0.000000
+                              xferItf_getDesc (#occ =        0) = 	0.000000
+                             xferItf_pushDesc (#occ =        0) = 	0.000000
+                             xferItf_getUchar (#occ =        0) = 	0.000000
+                               xferItf_getInt (#occ =        0) = 	0.000000
+                          xferItf_getVecUchar (#occ =        0) = 	0.000000
+                           xferItf_getVecChar (#occ =        0) = 	0.000000
+                  xferItf_getTensor2dUnsigned (#occ =        0) = 	0.000000
+                 xferItf_pushTensor2dUnsigned (#occ =        0) = 	0.000000
+                   xferItf_pushTensor2dUINT64 (#occ =        0) = 	0.000000
+                            xferItf_getVecInt (#occ =        0) = 	0.000000
+                         xferItf_getVecUllong (#occ =        0) = 	0.000000
+                         xferItf_pushVecUchar (#occ =        0) = 	0.000000
+                                         main (#occ =        0) = 	0.000000
+                                           me (#occ =        0) = 	0.000000
+                                         puts (#occ =        0) = 	0.000000
+                                     __adddf3 (#occ =        0) = 	0.000000
+                             mem_alloc_nolock (#occ =        0) = 	0.000000
+                                    mem_alloc (#occ =        0) = 	0.000000
+                                  buddy_alloc (#occ =        0) = 	0.000000
+                                   buddy_init (#occ =        0) = 	0.000000
+                                  check_stack (#occ =        0) = 	0.000000
+                                    __fixdfdi (#occ =        0) = 	0.000000
+                                      __ledf2 (#occ =        0) = 	0.000000
+                                 __fixunsdfdi (#occ =        0) = 	0.000000
+                                 __fixunsdfsi (#occ =        0) = 	0.000000
+                                __floatunsidf (#occ =        0) = 	0.000000
+                                     __muldf3 (#occ =        0) = 	0.000000
+                                 wideMultiply (#occ =        0) = 	0.000000
+                            xferItf_getUllong (#occ =        1) = 	0.000026
+                            xferItf_offsetInc (#occ =        1) = 	0.000026
+                             safe_buddy_alloc (#occ =        1) = 	0.000026
+                                      __ltdf2 (#occ =        1) = 	0.000026
+                    xferItf_pushTensor2dUchar (#occ =        2) = 	0.000051
+                     xferItf_getTensor2dUchar (#occ =        3) = 	0.000077
+                                   mutex_lock (#occ =        3) = 	0.000077
+                       __close_print_sequence (#occ =        3) = 	0.000077
+                         print_heap_final_pos (#occ =        5) = 	0.000128
+                   __finalized_print_sequence (#occ =        7) = 	0.000179
+                                       memset (#occ =       13) = 	0.000333
+                     __transfer_cache_to_mram (#occ =       50) = 	0.001280
+                        __open_print_sequence (#occ =      102) = 	0.002612
+             __write_byte_and_flush_if_needed (#occ =      106) = 	0.002714
+                                       printf (#occ =      150) = 	0.003841
+                         __memset_wram_4align (#occ =      226) = 	0.005787
+                                 barrier_wait (#occ =      856) = 	0.021920
+                                     __udiv32 (#occ =     4732) = 	0.121173
+                                    traceback (#occ =     5123) = 	0.131186
+                              perfcounter_get (#occ =     5822) = 	0.149085
+                                      __div32 (#occ =     7469) = 	0.191260
+                                     __modsi3 (#occ =     7481) = 	0.191568
+                                    __umoddi3 (#occ =    14267) = 	0.365338
+                                ranhash_int64 (#occ =    45731) = 	1.171044
+                                  dnacallowed (#occ =    48141) = 	1.232757
+                                shoveltheheap (#occ =    71539) = 	1.831915
+                        init_from_predecessor (#occ =   139927) = 	3.583142
+                                  __bootstrap (#occ =   140454) = 	3.596637
+                                     __muldi3 (#occ =   379482) = 	9.717481
+                                     heap_pop (#occ =   431313) = 	11.044729
+                                    heap_push (#occ =   747944) = 	19.152770
+                                       decode (#occ =   847494) = 	21.701969
+                                     __udiv64 (#occ =  1006699) = 	25.778767
+                                Total samples = 	3905148

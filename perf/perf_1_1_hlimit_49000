@@ -1,0 +1,163 @@
+Tasklet Balance Quality %  0.737647301341
+Cyc/Ins eff %  0.91661695195
+[DPU][PERF] Host Time
+10.67 secs
+[DPU][PERF] DpuTime
+7.87 secs
+[DPU][PERF] MegaCycles
+2754.50
+[DPU][PERF] MegaInstructions
+2524.82
+[DPU][PERF] Eff % 
+0.92
+[DPU][PERF] IO (MegaCycle,  %) 
+0.08       0.00 
+[DPU][PERF] pop (MegaCycle,  %) 
+231.28       8.40 
+[DPU][PERF] decode (MegaCycle,  %) 
+2753.13      99.95 
+[DPU][PERF] hashfunc (MegaCycle,  %) 
+410.81      14.91 
+[DPU][PERF] penality (MegaCycle,  %) 
+16.55       0.60 
+[DPU][PERF] hypcompute_first_section (MegaCycle,  %) 
+215.73       7.83 
+[DPU][PERF] hypload (MegaCycle,  %) 
+35.28       1.28 
+[DPU][PERF] push (MegaCycle,  %) 
+361.99      13.14 
+[DPU][PERF] hypcompute (MegaCycle,  %) 
+2024.75      73.51 
+[DPU][PERF] IO (Eff %) 
+0.35 
+[DPU][PERF] pop (Eff %) 
+0.90 
+[DPU][PERF] decode (Eff %) 
+0.92 
+[DPU][PERF] hashfunc (Eff %) 
+0.92 
+[DPU][PERF] penality (Eff %) 
+0.92 
+[DPU][PERF] hypcompute_first_section (Eff %) 
+0.92 
+[DPU][PERF] hypload (Eff %) 
+0.91 
+[DPU][PERF] push (Eff %) 
+0.92  
+[DPU][PERF] hypcompute (Eff %) 
+0.92 
+[DPU][PERF] hypcompute (Inst ) 
+29754792784.00 
+[DPU][PERF] hypcompute (Cyc ) 
+32396030752.00 
+[DPU][BW] W (Gbytes) (heap) 
+3.02  
+[DPU][BW] R (Gbytes) (heap)  
+6.36 
+[DPU][BW] W (Gbytes) (core func) 
+3.89 
+[DPU][BW] R (Gbytes) (core func) 
+5.27 
+[DPU][BW] W (Gbytes) (global) 
+6.91  
+[DPU][BW] R (Gbytes)(global) 
+11.63  
+[DPU][BW] W BW (Gbytes/sec) (heap) 
+0.38  
+[DPU][BW] R BW (Gbytes/sec) (heap)  
+0.81 
+[DPU][BW] W BW (Gbytes/sec) (core func) 
+0.49 
+[DPU][BW] R BW (Gbytes/sec) (core func) 
+0.67 
+[DPU][BW] W BW (Gbytes/sec) (global) 
+0.88  
+[DPU][BW] R BW (Gbytes/sec) (global) 
+1.48  
+[DPU][BW] W (bytes/cycl) BW (heap push) 
+0.0005  
+[DPU][BW] W (bytes/cycl) BW (heap pop) 
+0.0017  
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=16][NR_STRANDS=255][PERF_TYPE=0]
+
+Tasklet Balance Quality %  0.946901883825
+Cyc/Ins eff %  0.936143377847
+[DPU][PERF] Host Time
+15.87 secs
+[DPU][PERF] DpuTime
+15.03 secs
+[DPU][PERF] MegaCycles
+5259.01
+[DPU][PERF] MegaInstructions
+4923.19
+[DPU][PERF] Eff % 
+0.94
+[DPU][PERF] IO (MegaCycle,  %) 
+0.13       0.00 
+[DPU][PERF] pop (MegaCycle,  %) 
+438.61       8.34 
+[DPU][PERF] decode (MegaCycle,  %) 
+5256.85      99.96 
+[DPU][PERF] hashfunc (MegaCycle,  %) 
+781.93      14.87 
+[DPU][PERF] penality (MegaCycle,  %) 
+31.50       0.60 
+[DPU][PERF] hypcompute_first_section (MegaCycle,  %) 
+409.70       7.79 
+[DPU][PERF] hypload (MegaCycle,  %) 
+67.16       1.28 
+[DPU][PERF] push (MegaCycle,  %) 
+707.14      13.45 
+[DPU][PERF] hypcompute (MegaCycle,  %) 
+3853.41      73.27 
+[DPU][PERF] IO (Eff %) 
+0.28 
+[DPU][PERF] pop (Eff %) 
+0.93 
+[DPU][PERF] decode (Eff %) 
+0.94 
+[DPU][PERF] hashfunc (Eff %) 
+0.94 
+[DPU][PERF] penality (Eff %) 
+0.94 
+[DPU][PERF] hypcompute_first_section (Eff %) 
+0.94 
+[DPU][PERF] hypload (Eff %) 
+0.93 
+[DPU][PERF] push (Eff %) 
+0.93  
+[DPU][PERF] hypcompute (Eff %) 
+0.94 
+[DPU][PERF] hypcompute (Inst ) 
+57866123248.00 
+[DPU][PERF] hypcompute (Cyc ) 
+61654486512.00 
+[DPU][BW] W (Gbytes) (heap) 
+5.75  
+[DPU][BW] R (Gbytes) (heap)  
+12.08 
+[DPU][BW] W (Gbytes) (core func) 
+7.29 
+[DPU][BW] R (Gbytes) (core func) 
+9.94 
+[DPU][BW] W (Gbytes) (global) 
+13.04  
+[DPU][BW] R (Gbytes)(global) 
+22.02  
+[DPU][BW] W BW (Gbytes/sec) (heap) 
+0.38  
+[DPU][BW] R BW (Gbytes/sec) (heap)  
+0.80 
+[DPU][BW] W BW (Gbytes/sec) (core func) 
+0.49 
+[DPU][BW] R BW (Gbytes/sec) (core func) 
+0.66 
+[DPU][BW] W BW (Gbytes/sec) (global) 
+0.87  
+[DPU][BW] R BW (Gbytes/sec) (global) 
+1.47  
+[DPU][BW] W (bytes/cycl) BW (heap push) 
+0.0005  
+[DPU][BW] W (bytes/cycl) BW (heap pop) 
+0.0017  
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=16][NR_STRANDS=510][PERF_TYPE=0]

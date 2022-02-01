@@ -1,0 +1,98 @@
+# equilibrage des tasklets
+
+L equilibreage des tasklet est mesuré en mode perf.
+Plus le nombre de strands a traiter par run et plus le hlimit est faible
+, plus les tasklet s equilibrent facilement. 
+Exmplication : Plus le hlimit est elevé, moins il a de chance d etre atteint par chaque
+tasklet, et donc plus la variance du nombre d hypothese calculé est importante (variance entre tasklet).
+Plus cette variance est elevee, plus il faut la compenser par un nombre de strands élevé.
+Le systeme agit comme un filtre de moyennage.
+
+Limitation :1) L implementation actuelle ne permet pas d excerder hlimit = 50k (il faut mettre 49 k pour 
+               eviter un deadlock qui se produit pafois, pas compris), pour NR_TASKLET=16 
+               a cause de la capacité MRAM.
+            2) La taille de I, packet d entree a decoder ne peut pas exceder 510 strands = > (510, 300)
+               Pas encore compris mais c est surement du a un dépassement en WRAM lors du calcul des 
+               pointeurs des tenseurs IO.
+
+
+# sur dpu-statistics, on voit 2 primitives DPU qui prennent beaucoup de cycles:
+__udiv64 , __muldi3
+
+                                   __umoddi3 (#occ =    16855) = 	0.390536
+                                ranhash_int64 (#occ =    53099) = 	1.230322
+                                  dnacallowed (#occ =    56324) = 	1.305046
+                                shoveltheheap (#occ =    80697) = 	1.869777
+                        init_from_predecessor (#occ =   162411) = 	3.763118
+                                  __bootstrap (#occ =   227026) = 	5.260270
+                                     __muldi3 (#occ =   440949) = 	10.216939
+                                     heap_pop (#occ =   510669) = 	11.832376
+                                       decode (#occ =   773437) = 	17.920800
+                                    heap_push (#occ =   787371) = 	18.243656
+                                     __udiv64 (#occ =  1170820) = 	27.128300
+
+
+Apres analyse du .s du decoder, on ne retrouve pas directement l'appel a ces primitives,
+mais aux fonctions du dessus : 
+
+[__udiv64] est appellé par __umoddi3 (vu dans dpu-rt ) :
+
+umoddi3.c 
+
+ *
+ * This is the actual libcall implementation, as requested by the compiler.
+ */
+#include <stdint.h>
+extern uint64_t
+__udiv64(uint64_t dividend, uint64_t divider, int ask_remainder);
+
+uint64_t
+__umoddi3(uint64_t dividend, uint64_t divider)
+{
+    return __udiv64(dividend, divider, 1);
+}
+
+
+et __umoddi3 est appellé dans le calcul du hash , autour ranhash_int64
+
+.Ltmp823:
+        //DEBUG_VALUE: ranhash_int64:v <- $d0
+        .loc    8 16 9 is_stmt 1                // hedges/../hedges/ran.h:16:9
+        lslx r2, r1, 5
+        lsl_add r2, r2, r0, 5
+        lsl r3, r1, 5
+        .loc    8 16 4 is_stmt 0                // hedges/../hedges/ran.h:16:4
+        xor r1, r3, r1
+.Ltmp824:
+        xor r0, r2, r0
+.Ltmp825:
+        //DEBUG_VALUE: ranhash_int64:v <- $d0
+        .loc    4 215 97 is_stmt 1              // hedges/dpu_hedges_decoder.c:215:97
+        move.s d2, r14
+        .loc    4 215 95 is_stmt 0              // hedges/dpu_hedges_decoder.c:215:95
+        call r23, __umoddi3
+.Ltmp826:
+        .loc    4 215 3                         // hedges/dpu_hedges_decoder.c:215:3
+        move r0, r1
+        ld d18, r22, -32
+        ld d16, r22, -24
+        ld d14, r22, -16
+.Ltmp827:
+        ld d22, r22, -8
+        jump r23
+.Ltmp828:
+.Lfunc_end42:
+
+
+[__muldi3] est aussi utilisé par ranhash_int64 :
+
+
+Il est directement visible dans le .s
+
+.Ltmp983:
+        //DEBUG_VALUE: ranhash_int64:u <- $d0
+        .loc    8 9 15 is_stmt 1                // hedges/../hedges/ran.h:9:15
+        call r23, __muldi3
+
+
+
