@@ -1,0 +1,3 @@
+[submodule "dpu_recipes"]
+	path = dpu_recipes
+	url = git@github.com:upmem/dpu_recipes.git

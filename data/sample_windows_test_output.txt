@@ -1,0 +1,28 @@
+for each packet, these statistics are shown in two groups:
+1.1 HEDGES decode failures, 1.2 HEDGES bytes thus declared as erasures
+1.3 R-S total errors detected in packet, 1.4 max errors detected in a single decode
+2.1 R-S reported as initially-uncorrected-but-recoverable total, 2.2 same, but max in single decode
+2.3 R-S total error codes; if zero, then R-S corrected all errors
+2.4 Actual number of byte errors when compared to known plaintext input
+  0: (  9  55 221  11) (  1   1   0   0) packet OK
+  1: (  7  77 195  14) (  1   1   0   0) packet OK
+  2: (  6  33 151   8) (  0   0   0   0) packet OK
+  3: ( 11 123 265  14) (  1   1   0   0) packet OK
+  4: (  9  55 195  10) (  0   0   0   0) packet OK
+  5: (  5  50 159  10) (  0   0   0   0) packet OK
+  6: (  8  78 228  13) (  0   0   0   0) packet OK
+  7: (  4  35 136  12) (  0   0   0   0) packet OK
+  8: ( 11 135 292  13) (  1   1   0   0) packet OK
+  9: ( 10 128 248  12) (  0   0   0   0) packet OK
+ 10: (  9 103 236  12) (  0   0   0   0) packet OK
+ 11: ( 11  67 209  11) (  0   0   0   0) packet OK
+ 12: ( 10 105 241  13) (  0   0   0   0) packet OK
+ 13: (  4  33 102   7) (  0   0   0   0) packet OK
+ 14: (  3  39 133   8) (  0   0   0   0) packet OK
+ 15: (  6  27 114   6) (  0   0   0   0) packet OK
+ 16: (  2  10  93  10) (  0   0   0   0) packet OK
+ 17: (  5  56 151   9) (  0   0   0   0) packet OK
+ 18: (  8  74 211  14) (  0   0   0   0) packet OK
+ 19: ( 10 107 230  12) (  0   0   0   0) packet OK
+all packets OK
+TOT: ( 148 1390 3810  219) (   4    4    0    0)
