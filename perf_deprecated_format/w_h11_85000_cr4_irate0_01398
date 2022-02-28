@@ -1,0 +1,93 @@
+(cpu_decoder) time [s]  0.679261847603
+packet   0: (bad Decode :   6, reasures :  37, tot_detect : 69, max_detect :   5) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+(510, 300)
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=12][NR_STRANDS=510][PERF_TYPE=2]
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=12][NR_STRANDS=510][PERF_TYPE=1]
+Tasklet Balance Quality %  0.981603345461
+Cyc/Ins eff %  0.761175583524
+[DPU][PERF] Host Time
+23.95 secs
+[DPU][PERF] DpuTime
+23.50 secs
+[DPU][PERF] MegaCycles
+8226.66
+[DPU][PERF] MegaInstructions
+6261.93
+[DPU][PERF] Eff % 
+0.76
+[DPU][PERF] IO (MegaCycle,  %) 
+0.15       0.00 
+[DPU][PERF] pop (MegaCycle,  %) 
+1794.93      21.82 
+[DPU][PERF] decode (MegaCycle,  %) 
+8224.79      99.98 
+[DPU][PERF] hashfunc (MegaCycle,  %) 
+1983.52      24.11 
+[DPU][PERF] penality (MegaCycle,  %) 
+311.10       3.78 
+[DPU][PERF] hypcompute_first_section (MegaCycle,  %) 
+1020.90      12.41 
+[DPU][PERF] hypload (MegaCycle,  %) 
+203.32       2.47 
+[DPU][PERF] push (MegaCycle,  %) 
+1861.63      22.63 
+[DPU][PERF] hypcompute (MegaCycle,  %) 
+3889.73      47.28 
+[DPU][PERF] IO (Eff %) 
+0.12 
+[DPU][PERF] pop (Eff %) 
+0.71 
+[DPU][PERF] decode (Eff %) 
+0.76 
+[DPU][PERF] hashfunc (Eff %) 
+0.81 
+[DPU][PERF] penality (Eff %) 
+0.81 
+[DPU][PERF] hypcompute_first_section (Eff %) 
+0.81 
+[DPU][PERF] hypload (Eff %) 
+0.75 
+[DPU][PERF] push (Eff %) 
+0.71  
+[DPU][PERF] hypcompute (Eff %) 
+0.80 
+[DPU][PERF] hypcompute (Inst ) 
+37499904656.00 
+[DPU][PERF] hypcompute (Cyc ) 
+46676720944.00 
+[DPU][BW] W (Gbytes) (heap) 
+17.58  
+[DPU][BW] R (Gbytes) (heap)  
+37.66 
+[DPU][BW] W (Gbytes) (core func) 
+20.81 
+[DPU][BW] R (Gbytes) (core func) 
+26.48 
+[DPU][BW] W (Gbytes) (global) 
+38.38  
+[DPU][BW] R (Gbytes)(global) 
+64.14  
+[DPU][BW] W BW (Gbytes/sec) (heap) 
+0.75  
+[DPU][BW] R BW (Gbytes/sec) (heap)  
+1.60 
+[DPU][BW] W BW (Gbytes/sec) (core func) 
+0.89 
+[DPU][BW] R BW (Gbytes/sec) (core func) 
+1.13 
+[DPU][BW] W BW (Gbytes/sec) (global) 
+1.63  
+[DPU][BW] R BW (Gbytes/sec) (global) 
+2.73  
+[DPU][BW] W (bytes/cycl) BW (heap push) 
+0.0008  
+[DPU][BW] W (bytes/cycl) BW (heap pop) 
+0.0017  
+[DPU/CPU] acceleration 0.0284 
+[RANK/CPU] acceleration 1.8155 
+[DIMM/CPU] acceleration 3.6310 
+[SERVER/CPU] acceleration 36.3101 
+[RANK/CPU] +Weff 1.8155 
+[DIMM/CPU] +Weff 3.6310 
+[SERVER/CPU] +Weff 36.3101 
+

@@ -1,0 +1,120 @@
+[HEDGES TEST] for each packet, these statistics are shown in two groups:
+[HEDGES TEST] 1.1 HEDGES decode failures, 1.2 HEDGES bytes thus declared as erasures
+[HEDGES TEST] 1.3 R-S total errors detected in packet, 1.4 max errors detected in a single decode
+[HEDGES TEST] 2.1 R-S reported as initially-uncorrected-but-recoverable total, 2.2 same, but max in single decode
+[HEDGES TEST] 2.3 R-S total error codes; if zero, then R-S corrected all errors
+[HEDGES TEST] 2.4 Actual number of byte errors when compared to known plaintext input
+[HEDGES TEST] CR index 3 : 0.5
+[HEDGES TEST] real inner CR for hedges (inner) level  0.413333333333
+[HEDGES TEST] test_dpu_encoder False
+[HEDGES TEST] test_dpu_decoder True
+[HEDGES TEST] test_dpu_statistics False
+[HEDGES TEST] npackets 1
+[HEDGES TEST] hlimit 92500
+[HEDGES TEST] dpu_profiling 1
+[MAX HEAP HOST] 91766
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  1.3838952581
+[CPU] packet   0: (bad Decode :  31, reasures : 240, tot_detect :462, max_detect :  22) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+(510, 300)
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=11][NR_STRANDS=510][PERF_TYPE=2]
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=11][NR_STRANDS=510][PERF_TYPE=1]
+[HEDGES][DECODER][DPU][PERF][SUMMARY] Tasklet Balancing %  0.97088187999
+[HEDGES][DECODER][DPU][PERF][SUMMARY] Host Time
+59.82 secs
+[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu Time
+58.08 secs
+[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu MegaCycles
+20328.32
+[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu MegaInst
+15472.59
+[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu Pipeline Eff % 
+0.76
+[HEDGES][DECODER][DPU][PERF][CYCLES] (func) IO (MegaCycle,  %) 
+0.17 1841569.10 
+[HEDGES][DECODER][DPU][PERF][CYCLES] (func) push (MegaCycle,  %) 
+3932.94      19.35 
+[HEDGES][DECODER][DPU][PERF][CYCLES] (func) pop (MegaCycle,  %) 
+41798.29      18.69 
+[HEDGES][DECODER][DPU][PERF][CYCLES] (func) decode (MegaCycle,  %) 
+223591.12      99.99 
+[HEDGES][DECODER][DPU][PERF][CYCLES] (func) hashfunc (MegaCycle,  %) 
+60297.02      26.97 
+[HEDGES][DECODER][DPU][PERF][CYCLES] (func) penality (MegaCycle,  %) 
+9335.85       4.18 
+[HEDGES][DECODER][DPU][PERF][CYCLES] (func) hypcompute_first_section (MegaCycle,  %) 
+30725.01      13.74 
+[HEDGES][DECODER][DPU][PERF][CYCLES] (func) hypload (MegaCycle,  %) 
+6631.25       2.97 
+[HEDGES][DECODER][DPU][PERF][CYCLES] (func) hypcompute (MegaCycle,  %) 
+1.84       0.00 
+[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) IO (Eff %) 
+0.92 
+[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) push (Eff %) 
+0.72  
+[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) pop (Eff %) 
+0.71 
+[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) decode (Eff %) 
+0.76 
+[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hashfunc (Eff %) 
+0.79 
+[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) penality (Eff %) 
+0.80 
+[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hypcompute_first_section (Eff %) 
+0.79 
+[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hypload (Eff %) 
+0.76 
+[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hypcompute (Eff %) 
+0.92 
+[DPU][TASKLET BANDWIDTH] W (Gbytes) (global) 
+101.16  
+[DPU][TASKLET BANDWIDTH] R (Gbytes) (global) 
+161.33  
+[DPU][TASKLET BANDWIDTH] W (Gbytes) (heap) 
+42.77  
+[DPU][TASKLET BANDWIDTH] R (Gbytes) (heap)  
+91.80 
+[DPU][TASKLET BANDWIDTH] W (Gbytes) (core func) 
+58.39 
+[DPU][TASKLET BANDWIDTH] R (Gbytes) (core func) 
+69.53 
+[DPU][TASKLET BANDWIDTH] W BW (Gbytes/sec) (global) 
+1.74  
+[DPU][TASKLET BANDWIDTH] R BW (Gbytes/sec) (global) 
+2.78  
+[DPU][TASKLET BANDWIDTH] W BW (Gbytes/sec) (heap) 
+0.74  
+[DPU][TASKLET BANDWIDTH] R BW (Gbytes/sec) (heap)  
+1.58 
+[DPU][TASKLET BANDWIDTH] W BW (Gbytes/sec) (core func) 
+1.01 
+[DPU][TASKLET BANDWIDTH] R BW (Gbytes/sec) (core func) 
+1.20 
+[DPU/CPU]  Acceleration 0.0231 
+[RANK/CPU] Acceleration 1.4805 
+[DIMM/CPU] Acceleration 2.9611 
+[20.0 DIMM CLOUD /CPU] Acceleration 59.2211 
+[RANK/CPU] Energy Efficiency Gain 3.4431 
+[DIMM/CPU] Energy Efficiency Gain 3.4431 
+[20.0 DIMM CLOUD /CPU] Energy Efficiency Gain 68.8617 
+host res (real packet) => [[  0   0  76 ...,  10   0   0]
+ [  0   1  73 ...,   0   0   0]
+ [  0   2 107 ...,   0   0   0]
+ ..., 
+ [  0 252  75 ...,  82   0   1]
+ [  0 253  76 ..., 234   0   0]
+ [  0 254 254 ...,   2   0   0]]
+dpu  res (real packet) => [[  0   0  76 ...,  10   0   0]
+ [  0   1  73 ...,   0   0   0]
+ [  0   2 107 ...,   0   0   0]
+ ..., 
+ [  0 252  75 ...,  82   0   1]
+ [  0 253  76 ..., 234   0   0]
+ [  0 254 254 ...,   2   0   0]]
+[HEDGES][DECODER][PACKET][NSTRANDS (WITH FAKE FOR PERF)= 510 ] 1777
+[DPU] packet   0: (bad Decode :   0, reasures :   0, tot_detect :231,     max_detect :  16) ( tot_uncorrect :   0, max_uncorrect :   0,     totercodes :  12, badbytes : 207) packet NOT ok
+all packets OK
+TOT: (  31  240  462   22) (   0    0    0    0)
+some packets had errors!
+[DPU] TOT: (   0    0  231   16) (   0    0   12  207)
+

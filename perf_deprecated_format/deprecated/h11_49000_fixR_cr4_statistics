@@ -1,0 +1,165 @@
+npackets 20
+(cpu_decoder) time=  0.212623805055
+(510, 300)
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=16][NR_STRANDS=510][PERF_TYPE=2]
+^[[B(dpu decoder) [NR_DPUS=1][NR_TASKLETS=16][NR_STRANDS=510][PERF_TYPE=1]
+Tasklet Balance Quality %  0.8374214669
+Cyc/Ins eff %  1.00003204885
+[DPU][PERF] Host Time
+22.22 secs
+[DPU][PERF] DpuTime
+18.61 secs
+[DPU][PERF] MegaCycles
+6512.99
+[DPU][PERF] MegaInstructions
+6513.20
+[DPU][PERF] Eff % 
+1.00
+[DPU][PERF] IO (MegaCycle,  %) 
+0.15       0.00 
+[DPU][PERF] pop (MegaCycle,  %) 
+525.39       8.07 
+[DPU][PERF] decode (MegaCycle,  %) 
+6510.62      99.96 
+[DPU][PERF] hashfunc (MegaCycle,  %) 
+998.91      15.34 
+[DPU][PERF] penality (MegaCycle,  %) 
+49.70       0.76 
+[DPU][PERF] hypcompute_first_section (MegaCycle,  %) 
+528.13       8.11 
+[DPU][PERF] hypload (MegaCycle,  %) 
+92.51       1.42 
+[DPU][PERF] push (MegaCycle,  %) 
+716.48      11.00 
+[DPU][PERF] hypcompute (MegaCycle,  %) 
+4913.59      75.44 
+[DPU][PERF] IO (Eff %) 
+1.02 
+[DPU][PERF] pop (Eff %) 
+1.00 
+[DPU][PERF] decode (Eff %) 
+1.00 
+[DPU][PERF] hashfunc (Eff %) 
+1.00 
+[DPU][PERF] penality (Eff %) 
+1.00 
+[DPU][PERF] hypcompute_first_section (Eff %) 
+1.00 
+[DPU][PERF] hypload (Eff %) 
+1.00 
+[DPU][PERF] push (Eff %) 
+1.00  
+[DPU][PERF] hypcompute (Eff %) 
+1.00 
+[DPU][PERF] hypcompute (Inst ) 
+78620673584.00 
+[DPU][PERF] hypcompute (Cyc ) 
+78617446544.00 
+[DPU][BW] W (Gbytes) (heap) 
+6.66  
+[DPU][BW] R (Gbytes) (heap)  
+14.07 
+[DPU][BW] W (Gbytes) (core func) 
+8.71 
+[DPU][BW] R (Gbytes) (core func) 
+11.66 
+[DPU][BW] W (Gbytes) (global) 
+15.37  
+[DPU][BW] R (Gbytes)(global) 
+25.74  
+[DPU][BW] W BW (Gbytes/sec) (heap) 
+0.36  
+[DPU][BW] R BW (Gbytes/sec) (heap)  
+0.76 
+[DPU][BW] W BW (Gbytes/sec) (core func) 
+0.47 
+[DPU][BW] R BW (Gbytes/sec) (core func) 
+0.63 
+[DPU][BW] W BW (Gbytes/sec) (global) 
+0.83  
+[DPU][BW] R BW (Gbytes/sec) (global) 
+1.38  
+[DPU][BW] W (bytes/cycl) BW (heap push) 
+0.0006  
+[DPU][BW] W (bytes/cycl) BW (heap pop) 
+0.0017  
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=16][NR_STRANDS=510][PERF_TYPE=0]
+host res (real packet) => [[  0   0  76 ...,  73   0   2]
+ [  0   1  83 ..., 115   0   0]
+ [  0   2  32 ..., 114   0   0]
+ ..., 
+ [  0 252  29 ..., 103   0   0]
+ [  0 253   9 ..., 112   0   0]
+ [  0 254 225 ..., 181   0   0]]
+dpu  res (real packet) => [[  0   0  76 ...,  73   0   2]
+ [  0   1  83 ..., 115   0   0]
+ [  0   2  32 ..., 114   0   0]
+ ..., 
+ [  0 252  29 ..., 103   0   0]
+ [  0 253   9 ..., 112   0   0]
+ [  0 254 225 ..., 181   0   0]]
+[HEDGES][DECODER][PACKET][NSTRANDS (WITH FAKE FOR PERF)= 510 ] 0
+**************
+*** Global ***
+**************
+                                 xferItf_save (#occ =        0) = 	0.000000
+                              xferItf_restore (#occ =        0) = 	0.000000
+                                 xferItf_init (#occ =        0) = 	0.000000
+                            xferItf_offsetInc (#occ =        0) = 	0.000000
+                             xferItf_pushDesc (#occ =        0) = 	0.000000
+                             xferItf_getUchar (#occ =        0) = 	0.000000
+                            xferItf_getUllong (#occ =        0) = 	0.000000
+                               xferItf_getInt (#occ =        0) = 	0.000000
+                           xferItf_getVecChar (#occ =        0) = 	0.000000
+                  xferItf_getTensor2dUnsigned (#occ =        0) = 	0.000000
+                 xferItf_pushTensor2dUnsigned (#occ =        0) = 	0.000000
+                   xferItf_pushTensor2dUINT64 (#occ =        0) = 	0.000000
+                            xferItf_getVecInt (#occ =        0) = 	0.000000
+                         xferItf_getVecUllong (#occ =        0) = 	0.000000
+                         xferItf_pushVecUchar (#occ =        0) = 	0.000000
+                                       hash_dna (#occ =        0) = 	0.000000
+                                           me (#occ =        0) = 	0.000000
+                                    heap_init (#occ =        0) = 	0.000000
+                                         puts (#occ =        0) = 	0.000000
+                       __close_print_sequence (#occ =        0) = 	0.000000
+                             mem_alloc_nolock (#occ =        0) = 	0.000000
+                                    mem_alloc (#occ =        0) = 	0.000000
+                                  buddy_alloc (#occ =        0) = 	0.000000
+                                   buddy_init (#occ =        0) = 	0.000000
+                                  check_stack (#occ =        0) = 	0.000000
+                                    __fixdfsi (#occ =        0) = 	0.000000
+                                     __muldf3 (#occ =        0) = 	0.000000
+                                 wideMultiply (#occ =        0) = 	0.000000
+                              xferItf_getDesc (#occ =        1) = 	0.000014
+                          xferItf_getVecUchar (#occ =        1) = 	0.000014
+                     __transfer_cache_to_mram (#occ =        1) = 	0.000014
+                   __finalized_print_sequence (#occ =        1) = 	0.000014
+                             safe_buddy_alloc (#occ =        1) = 	0.000014
+                                         main (#occ =        2) = 	0.000028
+                                   mutex_lock (#occ =        2) = 	0.000028
+                                       memset (#occ =        3) = 	0.000042
+                     xferItf_getTensor2dUchar (#occ =        4) = 	0.000057
+             __write_byte_and_flush_if_needed (#occ =        6) = 	0.000085
+                    xferItf_pushTensor2dUchar (#occ =        7) = 	0.000099
+                                       printf (#occ =       19) = 	0.000269
+                        __open_print_sequence (#occ =      306) = 	0.004328
+                         __memset_wram_4align (#occ =      359) = 	0.005077
+                                 barrier_wait (#occ =     1247) = 	0.017636
+                                       decode (#occ =     2702) = 	0.038214
+                                    traceback (#occ =     6745) = 	0.095394
+                                     __udiv32 (#occ =    12623) = 	0.178527
+                              perfcounter_get (#occ =    15962) = 	0.225750
+                                      __div32 (#occ =    19813) = 	0.280215
+                                     __modsi3 (#occ =    19865) = 	0.280950
+                                    __umoddi3 (#occ =    38056) = 	0.538225
+                                ranhash_int64 (#occ =   125679) = 	1.777474
+                                  dnacallowed (#occ =   130414) = 	1.844441
+                                  heap_mining (#occ =   178489) = 	2.524364
+                        init_from_predecessor (#occ =   379178) = 	5.362703
+                                     heap_pop (#occ =   523646) = 	7.405909
+                                    heap_push (#occ =   734049) = 	10.381632
+                                     __muldi3 (#occ =  1011751) = 	14.309163
+                                  __bootstrap (#occ =  1183172) = 	16.733565
+                                     __udiv64 (#occ =  2686547) = 	37.995752
+                                Total samples = 	7070651
+

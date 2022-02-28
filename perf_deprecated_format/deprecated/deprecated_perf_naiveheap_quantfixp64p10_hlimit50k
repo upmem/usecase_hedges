@@ -158,7 +158,7 @@ dpu  => [[  0   0  76 ...,  73   0   0]
                                     __umoddi3 (#occ =    16855) = 	0.390536
                                 ranhash_int64 (#occ =    53099) = 	1.230322
                                   dnacallowed (#occ =    56324) = 	1.305046
-                                shoveltheheap (#occ =    80697) = 	1.869777
+                                  heap_mining (#occ =    80697) = 	1.869777
                         init_from_predecessor (#occ =   162411) = 	3.763118
                                   __bootstrap (#occ =   227026) = 	5.260270
                                      __muldi3 (#occ =   440949) = 	10.216939

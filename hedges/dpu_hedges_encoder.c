@@ -153,9 +153,36 @@ Int dnacallowed(Uchar *dnac_ok, GF4reg prev)
   return ans;
 }
 
-Int digest(Ullong bits, Int seq, Ullong salt, Int mod)
+void hash_dna(Int *out, Ullong bits, Int seq, Ullong salt, Int mod)
 {
-  return (Int)(ranhash_int64((((((Ullong)(seq)&seqnomask) << NPREV) | bits) << HSALT) | salt) % mod);
+  Ullong ret;
+
+  ranhash_int64(&ret, ((((((Ullong)(seq)&seqnomask) << NPREV) | bits) << HSALT) | salt));
+
+  Ullong div;
+  Ullong ret_;
+
+  /* op: (% mod) with mod from 0 to 4 */
+  if (mod == 4)
+  {
+    div = ret >> 2;
+    ret_ = ret - (div << 2);
+  }
+  else if(mod == 2)
+  {
+    div = ret >> 1;
+    ret_ = ret - (div << 1);
+  }
+  else if (mod == 1)
+  {
+    ret_ = ret;
+  }
+  else
+  {
+    ret_ = ret % mod;
+  }
+
+  *out = (Int)(ret_);
 }
 
 Int vbitlen(Int nmb)
@@ -247,7 +274,7 @@ void encode(uint32_t packet_index_)
       salt = newsalt; // time to update the salt
     }
     mod = (k < LPRIMER ? 4 : dnacallowed(dnac_ok, prevcode));
-    regout = digest(prevbits, k, salt, mod);
+    hash_dna(&regout, prevbits, k, salt, mod);
     regout = (regout + (Uchar)(messagebit)) % mod;
 
     codetext[k] = (k < LPRIMER ? regout : dnac_ok[regout]);
@@ -321,18 +348,13 @@ int main()
 
       xitf.getTensor2dUchar(&xitf, &I);
 
-      // the encoded size is computed as folow (is variable to support different code rates)
-
-      // packed bits are stored as rows
+      /** packed bits are stored as rows */
       uint64_t packed_message_size = I.shapes[1];
-      // number of encoded output character (in output alphabet space)
-      uint64_t codetext_size = vbitlen(8 /*8 bit per packed bit*/ * packed_message_size) + RPRIMER;
+      /** number of encoded output character (in output alphabet space) */
+      uint64_t codetext_size = vbitlen(8 /** 8 bit per packet */ * packed_message_size) + RPRIMER;
       uint64_t output_shapes[2] = {I.shapes[0], codetext_size};
 
-      /** NOTE : PUSH is done before processing function (encode),
-       *         because push() in DPU side means : allocate MRAM space + solve mram table
-       *         TODO : Maybe the name "push" is ambiguous
-       **/
+      /** because push() in DPU side, push means : allocate MRAM space + solve mram table */
       xitf.pushTensor2dUchar(&xitf, &O, output_shapes);
       loaded = 1;
     }
@@ -343,6 +365,7 @@ int main()
   uint32_t tasklet_current_packet_index;
   uint32_t total_packet = O.shapes[0];
 
+  /** call encode for each packet */
   while (1)
   {
     get_next_packet_index(&tasklet_current_packet_index);

@@ -147,7 +147,7 @@ Int dnacallowed(GF4reg prev)
 }
 
 Ranhash ranhash;
-inline Int digest(Ullong bits, Int seq, Ullong salt, Int mod)
+inline Int hash_dna(Ullong bits, Int seq, Ullong salt, Int mod)
 {
 	return Int(ranhash.int64(
 				   ((((Ullong(seq) & seqnomask) << NPREV) | bits) << HSALT) | salt) %
@@ -200,9 +200,7 @@ void setparams_DPU(int32_t nsalt, int32_t maxseq, int32_t nstak, int32_t hlimit)
 void setparams_DPU()
 {
 	// Note : replaced by constant MAXSEQ_DPU in DPU code
-	// DPU_ASSERT(dpu_broadcast_to(dpu_set, "NSALT", 0, &NSALT, sizeof(NSALT), DPU_XFER_DEFAULT));
-	//	DPU_ASSERT(dpu_broadcast_to(dpu_set, "MAXSEQ", 0, &MAXSEQ, sizeof(MAXSEQ), DPU_XFER_DEFAULT));
-	DPU_ASSERT(dpu_broadcast_to(dpu_set, "NSTAK", 0, &NSTAK, sizeof(NSTAK), DPU_XFER_DEFAULT));
+
 	DPU_ASSERT(dpu_broadcast_to(dpu_set, "HLIMIT", 0, &HLIMIT, sizeof(HLIMIT), DPU_XFER_DEFAULT));
 	DPU_ASSERT(dpu_broadcast_to(dpu_set, "_reward", 0, &reward, sizeof(double), DPU_XFER_DEFAULT));
 }
@@ -225,7 +223,6 @@ static PyObject *setparams(PyObject *self, PyObject *pyargs)
 	}
 
 	setparams_C(NRpyInt(args[0]), NRpyInt(args[1]), NRpyInt(args[2]), NRpyInt(args[3]));
-	// setparams_DPU(NRpyInt(args[0]), NRpyInt(args[1]), NRpyInt(args[2]), NRpyInt(args[3]));
 
 	return NRpyObject(Int(0));
 }
@@ -269,18 +266,6 @@ static PyObject *setdnaconstraints(PyObject *self, PyObject *pyargs)
 	dnawinmask = (Ullong(1) << 2 * DNAWINDOW) - 1;
 	dnaoldmask = (Ullong(1) << 2 * (DNAWINDOW - 1)) - 1;
 	return NRpyObject(Int(0));
-}
-
-void quantif_test()
-{
-	double a = 0.0;
-	double b;
-	b = a;
-	for (uint64_t i = 0; i < 10; i++)
-	{
-		b = b + reward;
-		printf("b : %lf\n", b);
-	}
 }
 
 static PyObject *getscores(PyObject *self, PyObject *pyargs)
@@ -357,7 +342,7 @@ void findprimersalt(const char *leftpr, const char *rightpr)
 	{
 		for (i = 0; i < 100; i++)
 		{ // try up to 100 times
-			regout = digest(Ullong(0), k, Ullong(i), 4);
+			regout = hash_dna(Ullong(0), k, Ullong(i), 4);
 			if (regout == leftprimer[k])
 			{
 				primersalt[k] = i;
@@ -573,7 +558,7 @@ GF4word encode_C(const char *message, Int n, Int len = 0)
 			salt = newsalt; // time to update the salt
 		}
 		mod = (k < LPRIMER ? 4 : dnacallowed(prevcode));
-		regout = digest(prevbits, k, salt, mod);
+		regout = hash_dna(prevbits, k, salt, mod);
 		regout = (regout + Uchar(messagebit)) % mod;
 		codetext[k] = (k < LPRIMER ? regout : dnac_ok[regout]);
 		prevbits = ((prevbits << nbits) & prevmask) | messagebit; // variable number
@@ -606,34 +591,19 @@ static PyObject *messtodna_DPU(PyObject *self, PyObject *pyargs)
 
 	xitf->restore();
 	// pre allocate output (DPU output container) packet as 2d Matrix
-	// TOTO : see how to retreives  CODETEXT_SIZE from input variables
-
 	uint64_t message_size = packet.ncols();						  // number of packed bits
 	uint64_t codetext_size = vbitlen(8 * message_size) + RPRIMER; // number of encoded output character (in output alphabet space)
 	MatUchar encoded_packet(packet.nrows(), codetext_size);
-	uint64_t encoded_packet_shapes[] = {packet.nrows(), codetext_size};
+	uint64_t encoded_packet_shapes[] = {(uint64_t)(packet.nrows()), codetext_size};
 	dpu::Tensor2d<Uchar> encoded_packet_dpu(NR_DPUS, encoded_packet_shapes);
 	auto r = packet.nrows();
 	auto c = packet.ncols();
 
 	// fill DPUs Tensor2d with message Matrix
 	// for now we send the full packet(r,c) = (255,21) to a single DPU
-	uint32_t NPACKET_PER_DPU = ENCODER_NPACKET_PER_DPU;
-	DPU_ASSERT(dpu_broadcast_to(dpu_set, "NPACKET_PER_DPU", 0, &NPACKET_PER_DPU, sizeof(uint32_t), DPU_XFER_DEFAULT));
-
-	// TODO COMPUTES THESES PARAMETERS FROM Input/Output shapes
-	// so that it wil works for many codding rates
-	//. uint32_t DPU_MRAM_SIZE_BYTE = 64000000;
-	//. uint32_t NR_STRANDS_PER_PACKET = 255;
-	//. uint32_t INPUT_BYTES_PER_STRANDS = 31;
-	//. uint32_t OUTPUT_BYTES_PER_STRANDS = 300;
-	//. uint32_t MAX_NPACKET_PER_DPU = DPU_MRAM_SIZE_BYTE / (NR_STRANDS_PER_PACKET * (INPUT_BYTES_PER_STRANDS + OUTPUT_BYTES_PER_STRANDS));
-	// NOTE : This works only with one DPU
-	//        , we don't have enough datas to
-	//        test in multiple DPU scenarios.
 	assert(NR_DPUS == 1);
 	{
-		uint64_t packet_dpu_shapes[] = {r, c};
+		uint64_t packet_dpu_shapes[] = {(uint64_t)r, (uint64_t)c};
 		dpu::Tensor2d<Uchar> packet_dpu(NR_DPUS, packet_dpu_shapes);
 		{
 			// Transfer nr3python::MatUchar into du::Tensor2d
@@ -756,7 +726,7 @@ struct Hypothesis
 		// calculate predicted message under this hypothesis
 		prevcode = hp->prevcode;
 		mod = (seq < LPRIMER ? 4 : dnacallowed(prevcode));
-		regout = digest(prevbits, seq, mysalt, mod);
+		regout = hash_dna(prevbits, seq, mysalt, mod);
 		regout = (regout + Uchar(messagebit)) % mod;
 		regout = (seq < LPRIMER ? regout : dnac_ok[regout]);
 		prevbits = ((hp->prevbits << nbits) & prevmask) | messagebit; // variable number
@@ -836,8 +806,7 @@ void heap_display(uint64_t nfinal_, uint64_t dpu_nfinal_, uint64_t N)
 	for (uint64_t i = 0; i < N; i++)
 	{
 		double dpu_score_requant = FP_TO_DOUBLE(heap.ar[nfinal_]);
-		printf("HEAP (HOST,DPU) [%lu][%lu] [%d]  %.5f,%.5f  %u,%u\n", nfinal_, dpu_nfinal_, i, heap.ar[nfinal_], dpu_score_requant, (unsigned)(heap.br[nfinal_]), (unsigned)(dpu_ptr[dpu_nfinal_]));
-		/*hypothesis_display((unsigned)(heap.br[i]));*/
+		printf("HEAP (HOST,DPU) [%lu][%lu] [%lu]  %.5f,%.5f  %u,%u\n", nfinal_, dpu_nfinal_, i, heap.ar[nfinal_], dpu_score_requant, (unsigned)(heap.br[nfinal_]), (unsigned)(dpu_ptr[dpu_nfinal_]));
 		dpu_nfinal_++;
 		nfinal_++;
 	}
@@ -863,7 +832,7 @@ void init_heap_and_stack()
 	heap.push(1.e10, 0);
 }
 
-void shoveltheheap(Int limit, Int nmessbits)
+void heap_mining(Int limit, Int nmessbits)
 {
 	// given the heap, keep processing it until offset limit, hypothesis limit, or an error is reached
 	Int qq, seq, nguess, qqmax = -1, ofmax = -1, seqmax = vbitlen(nmessbits);
@@ -879,7 +848,7 @@ void shoveltheheap(Int limit, Int nmessbits)
 		seq = hp->seq;
 
 		if (seq > MAXSEQ)
-			NRpyException("shoveltheheap: MAXSEQ too small");
+			NRpyException("heap_mining: MAXSEQ too small");
 		nguess = 1 << pattarr[seq + 1]; // i.e., 1, 2, or 4
 		if (hp->offset > ofmax)
 		{ // keep track of farthest gotten to
@@ -1034,10 +1003,22 @@ static PyObject *releaseall(PyObject *self, PyObject *pyargs)
 	allnewsalt.resize(0);
 	return NRpyObject(Int(0));
 }
-
-void print_heap_final_pos()
+uint64_t maxheaphost = 0;
+void reg_max_heap()
 {
-	printf("[HOST] heap_final_pos  %lu \n", nfinal);
+	if (nfinal > maxheaphost)
+		maxheaphost = nfinal;
+}
+
+static PyObject *print_and_reset_reg_max_heap(PyObject *self, PyObject *pyargs)
+{
+	std::cout << "[MAX HEAP HOST] " << maxheaphost << "\n";
+	std::cout << "[DPU HEAP_MAX_ITEM] " << HEAP_MAX_ITEM   << "\n";
+	//assert
+	if(maxheaphost < HEAP_MAX_ITEM)
+		std::cerr <<   "[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM\n" ;	
+	maxheaphost = 0;
+	return NRpyObject(0);
 }
 
 VecUchar decode_C(GF4word &codetext, Int nmessbits = 0)
@@ -1045,8 +1026,8 @@ VecUchar decode_C(GF4word &codetext, Int nmessbits = 0)
 	codetext_g = &codetext[0]; // set the pointer
 	codetextlen_g = codetext.size();
 	init_heap_and_stack();
-	shoveltheheap(codetext.size(), nmessbits); // THIS WAS BUG: //last arg was nmessbits, but now always do whole codetext
-	/** print_heap_final_pos(); **/
+	heap_mining(codetext.size(), nmessbits); // THIS WAS BUG: //last arg was nmessbits, but now always do whole codetext
+	reg_max_heap();
 	VecMbit trba = traceback();
 	VecUchar pack = packvbits(trba, nmessbits); // truncate only at the end
 	return pack;
@@ -1063,16 +1044,16 @@ MatUchar decode_DPU_(MatUchar &codetext,
 					 Int perf_type,
 					 uint64_t &nr_tasklets,
 					 uint32_t &clocks_per_sec,
-					 uint64_t &total_cycles,
-					 uint64_t &hypcompute_cycles,
-					 uint64_t &io_cycles,
-					 uint64_t &push_cycles,
-					 uint64_t &pop_cycles,
-					 uint64_t &decode_cycles,
-					 uint64_t &hashfunc_cycles,
-					 uint64_t &penality_cycles,
-					 uint64_t &hypcompute_first_section_cycles,
-					 uint64_t &hypload_cycles,
+					 uint64_t *total_cycles,
+					 uint64_t *hypcompute_cycles,
+					 uint64_t *io_cycles,
+					 uint64_t *push_cycles,
+					 uint64_t *pop_cycles,
+					 uint64_t *decode_cycles,
+					 uint64_t *hashfunc_cycles,
+					 uint64_t *penality_cycles,
+					 uint64_t *hypcompute_first_section_cycles,
+					 uint64_t *hypload_cycles,
 					 double &host_time,
 					 uint64_t &nbyte_written_heap,
 					 uint64_t &nbyte_loaded_heap,
@@ -1089,7 +1070,7 @@ MatUchar decode_DPU_(MatUchar &codetext,
 	assert(NR_DPUS == 1);
 
 	/** build codetext Matrix for dpu **/
-	uint64_t codetext_packet_shapes[] = {codetext.nrows(), codetext.ncols()};
+	uint64_t codetext_packet_shapes[] = {(uint64_t)codetext.nrows(), (uint64_t)codetext.ncols()};
 	dpu::Tensor2d<Uchar> codetext_packet_dpu(NR_DPUS, codetext_packet_shapes);
 	{
 		for (uint64_t dpu_index = 0; dpu_index < codetext_packet_dpu.nr_dpus; dpu_index++)
@@ -1114,7 +1095,7 @@ MatUchar decode_DPU_(MatUchar &codetext,
 	dpu_sync(dpu_set);
 	double end = my_clock();
 	host_time = end - start;
-	uint64_t decoded_packet_shapes[] = {codetext.nrows(), nmessbytes};
+	uint64_t decoded_packet_shapes[] = {(uint64_t)codetext.nrows(), (uint64_t)nmessbytes};
 	dpu::Tensor2d<Uchar> decoded_packet_dpu(NR_DPUS, decoded_packet_shapes);
 	xitf->get(decoded_packet_dpu);
 
@@ -1134,29 +1115,6 @@ MatUchar decode_DPU_(MatUchar &codetext,
 	// total cycles/inst
 	if (perf_type)
 	{
-		uint64_t total_cycles_[NR_TASKLETS];
-		DPU_FOREACH(dpu_set, dpu)
-		{
-			DPU_ASSERT(
-				dpu_copy_from(dpu, "total_cycles", 0, &total_cycles_, NR_TASKLETS * sizeof(uint64_t)));
-		}
-		uint64_t total_cycles__ = 0;
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "total cycles ["<< i <<"]" <<  total_cycles_[i]  << "\n";
-			total_cycles__ += total_cycles_[i];
-		}
-		total_cycles = total_cycles__;
-
-		uint64_t nb_cycles_pop[NR_TASKLETS];
-		uint64_t nb_cycles_push[NR_TASKLETS];
-		uint64_t nb_cycles_io[NR_TASKLETS];
-		uint64_t nb_cycles_hypcompute[NR_TASKLETS];
-		uint64_t nb_cycles_decode[NR_TASKLETS];
-		uint64_t nb_cycles_hashfunc[NR_TASKLETS];
-		uint64_t nb_cycles_penality[NR_TASKLETS];
-		uint64_t nb_cycles_hypcompute_first_section[NR_TASKLETS];
-		uint64_t nb_cycles_hypload[NR_TASKLETS];
 		uint64_t nb_bytes_loaded[NR_TASKLETS];
 		uint64_t nb_bytes_written[NR_TASKLETS];
 		uint64_t nb_bytes_loaded_heap[NR_TASKLETS];
@@ -1164,27 +1122,26 @@ MatUchar decode_DPU_(MatUchar &codetext,
 
 		DPU_FOREACH(dpu_set, dpu)
 		{
-			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_pop", 0, &nb_cycles_pop,
+			DPU_ASSERT(dpu_copy_from(dpu, "total_cycles", 0, total_cycles,
+									NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_pop", 0, pop_cycles,
 									 NR_TASKLETS * sizeof(uint64_t)));
-			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_push", 0, &nb_cycles_push,
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_push", 0, push_cycles,
 									 NR_TASKLETS * sizeof(uint64_t)));
-			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_io", 0, &nb_cycles_io,
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_io", 0, io_cycles,
 									 NR_TASKLETS * sizeof(uint64_t)));
-			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hypcompute", 0, &nb_cycles_hypcompute,
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hypcompute", 0, hypcompute_cycles,
 									 NR_TASKLETS * sizeof(uint64_t)));
-			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_decode", 0, &nb_cycles_decode,
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_decode", 0, decode_cycles,
 									 NR_TASKLETS * sizeof(uint64_t)));
-			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hashfunc", 0, &nb_cycles_hashfunc,
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hashfunc", 0, hashfunc_cycles,
 									 NR_TASKLETS * sizeof(uint64_t)));
-
-			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_penality", 0, &nb_cycles_penality,
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_penality", 0, penality_cycles,
 									 NR_TASKLETS * sizeof(uint64_t)));
-
-			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hypcompute_first_section", 0, &nb_cycles_hypcompute_first_section,
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hypcompute_first_section", 0, hypcompute_first_section_cycles,
 									 NR_TASKLETS * sizeof(uint64_t)));
-			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hypload", 0, &nb_cycles_hypload,
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_hypload", 0, hypload_cycles,
 									 NR_TASKLETS * sizeof(uint64_t)));
-
 			DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_loaded_heap", 0, &nb_bytes_loaded_heap,
 									 NR_TASKLETS * sizeof(uint64_t)));
 			DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_written_heap", 0, &nb_bytes_written_heap,
@@ -1194,86 +1151,13 @@ MatUchar decode_DPU_(MatUchar &codetext,
 			DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_written", 0, &nb_bytes_written,
 									 NR_TASKLETS * sizeof(uint64_t)));
 		}
-		uint64_t hypcompute_time = 0;
 		for (uint64_t i = 0; i < NR_TASKLETS; i++)
 		{
-			// std::cerr << "nb_cycles_hypcompute [" << i <<"] " <<  nb_cycles_hypcompute[i]<< "\n";
-			hypcompute_time += nb_cycles_hypcompute[i];
-		}
-		uint64_t io_time = 0;
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nb_cycles_io [" << i <<"] " << nb_cycles_io[i]<< "\n";
-			io_time += nb_cycles_io[i];
-		}
-		uint64_t push_time = 0;
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nb_cycles_push [" << i <<"] "<<  nb_cycles_push[i]<< "\n";
-			push_time += nb_cycles_push[i];
-		}
-		uint64_t pop_time = 0;
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			pop_time += nb_cycles_pop[i];
-		}
-		uint64_t decode_time = 0;
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nb_cycles_decode [" << i <<"] " <<  nb_cycles_decode[i]<< "\n";
-			decode_time += nb_cycles_decode[i];
-		}
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nb_cycles_hashfunc [" << i <<"] " <<  nb_cycles_hashfunc[i]<< "\n";
-			hashfunc_cycles += nb_cycles_hashfunc[i];
-		}
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "penality_cycles [" << i <<"] " <<  nb_cycles_penality[i]<< "\n";
-			penality_cycles += nb_cycles_penality[i];
-		}
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nb_cycles_hypcompute_first_section [" << i <<"] " <<  nb_cycles_hypcompute_first_section[i]<< "\n";
-			hypcompute_first_section_cycles += nb_cycles_hypcompute_first_section[i];
-		}
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nb_cycles_hashfunc [" << i <<"] " <<  nb_cycles_hashfunc[i]<< "\n";
-			hypload_cycles += nb_cycles_hypload[i];
-		}
-
-		// uint64_t nbyte_written_heap;
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nb_cycles_decode [" << i <<"] " <<  nb_cycles_decode[i]<< "\n";
 			nbyte_written_heap += nb_bytes_written_heap[i];
-		}
-		// uint64_t nbyte_loaded_heap;
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nb_cycles_decode [" << i <<"] " <<  nb_cycles_decode[i]<< "\n";
 			nbyte_loaded_heap += nb_bytes_loaded_heap[i];
-		}
-		// uint64_t nbyte_written;
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nbyte_written [" << i <<"] " <<  nb_bytes_written[i] << "\n";
 			nbyte_written += nb_bytes_written[i];
-		}
-		// uint64_t nbyte_loaded;
-		for (uint64_t i = 0; i < NR_TASKLETS; i++)
-		{
-			// std::cerr << "nbyte_loaded [" << i <<"] " <<  nb_bytes_loaded[i] << "\n";
 			nbyte_loaded += nb_bytes_loaded[i];
 		}
-
-		decode_cycles = decode_time;
-		io_cycles = io_time;
-		hypcompute_cycles = hypcompute_time;
-		push_cycles = push_time;
-		pop_cycles = pop_time;
 	}
 
 	/**
@@ -1314,11 +1198,6 @@ MatUchar decode_DPU_(MatUchar &codetext,
 		//  heap_display(0, 0, 200);
 	}
 
-	if (ENABLE_TEST_DPU_HEAP)
-	{
-		quantif_test();
-	}
-
 	if (ENABLE_DPU_PRINT)
 	{
 		struct dpu_set_t dpu;
@@ -1336,7 +1215,7 @@ void decode_fulldata_C(GF4word codetext)
 	codetext_g = &codetext[0]; // set the pointer
 	codetextlen_g = codetext.size();
 	init_heap_and_stack();
-	shoveltheheap(codetext.size(), 0);
+	heap_mining(codetext.size(), 0);
 	traceback_fulldata(hypostack);
 }
 
@@ -1357,21 +1236,32 @@ static PyObject *decode_DPU(PyObject *self, PyObject *pyargs)
 
 	uint64_t nr_tasklets;
 	uint32_t clocks_per_sec;
-	uint64_t total_cycles;
-	uint64_t hypcompute_cycles;
-	uint64_t io_cycles;
-	uint64_t push_cycles;
-	uint64_t pop_cycles;
-	uint64_t decode_cycles;
-	uint64_t hashfunc_cycles = 0;
-	uint64_t penality_cycles = 0;
-	uint64_t hypcompute_first_section_cycles = 0;
-	uint64_t hypload_cycles = 0;
+	uint64_t total_cycles[NR_TASKLETS];
+	VecDoub total_cycles_( NR_TASKLETS);
+	uint64_t push_cycles[NR_TASKLETS];
+	VecDoub push_cycles_( NR_TASKLETS);
+	uint64_t io_cycles[NR_TASKLETS];
+	VecDoub  io_cycles_( NR_TASKLETS);
+	uint64_t pop_cycles[NR_TASKLETS];
+	VecDoub  pop_cycles_( NR_TASKLETS);
+	uint64_t decode_cycles[NR_TASKLETS];
+	VecDoub  decode_cycles_( NR_TASKLETS);
+	uint64_t hashfunc_cycles[NR_TASKLETS];
+	VecDoub  hashfunc_cycles_( NR_TASKLETS);
+	uint64_t penality_cycles[NR_TASKLETS];
+	VecDoub  penality_cycles_( NR_TASKLETS);
+	uint64_t hypcompute_first_section_cycles[NR_TASKLETS];
+	VecDoub  hypcompute_first_section_cycles_ ( NR_TASKLETS) ;
+	uint64_t hypcompute_cycles[NR_TASKLETS];
+	VecDoub  hypcompute_cycles_( NR_TASKLETS);
+	uint64_t hypload_cycles[NR_TASKLETS];
+	VecDoub  hypload_cycles_( NR_TASKLETS);
 	double host_time;
 	uint64_t nbyte_written_heap = 0;
 	uint64_t nbyte_loaded_heap = 0;
 	uint64_t nbyte_written = 0;
 	uint64_t nbyte_loaded = 0;
+
 
 	MatUchar plaintext = decode_DPU_(codetext,
 									 nmessbits,
@@ -1394,6 +1284,21 @@ static PyObject *decode_DPU(PyObject *self, PyObject *pyargs)
 									 nbyte_written,
 									 nbyte_loaded);
 
+	assert(NR_TASKLETS == nr_tasklets);
+	for (uint64_t i = 0; i< NR_TASKLETS ;i++)
+	{
+		total_cycles_[i] = (Doub)total_cycles[i]   +    0.1;
+		hypcompute_cycles_[i] = (Doub)hypcompute_cycles[i]+    0.1;
+		io_cycles_[i] = (Doub) io_cycles[i]+    0.1;
+		push_cycles_[i] = (Doub) push_cycles[i]+    0.1;
+		pop_cycles_[i] = (Doub) pop_cycles[i]+    0.1;
+		decode_cycles_[i] =	(Doub)  decode_cycles[i]+    0.1;
+		hashfunc_cycles_[i] = (Doub)  hashfunc_cycles[i]+    0.1;
+		penality_cycles_[i] = (Doub) penality_cycles[i]+    0.1;
+		hypcompute_first_section_cycles_[i] =(Doub)  hypcompute_first_section_cycles[i]+    0.1;
+		hypload_cycles_[i] = (Doub) hypload_cycles[i]+    0.1;
+	}
+		
 	return NRpyTuple(
 		NRpyObject(errcode),
 		NRpyObject(plaintext),
@@ -1404,16 +1309,16 @@ static PyObject *decode_DPU(PyObject *self, PyObject *pyargs)
 		NRpyObject((Ullong)(nr_tasklets)),
 		NRpyObject((Ullong)(clocks_per_sec)),
 		NRpyObject((Doub)(host_time)),
-		NRpyObject((Ullong)(total_cycles)),
-		NRpyObject((Ullong)(hypcompute_cycles)),
-		NRpyObject((Ullong)(io_cycles)),
-		NRpyObject((Ullong)(push_cycles)),
-		NRpyObject((Ullong)(pop_cycles)),
-		NRpyObject((Ullong)(decode_cycles)),
-		NRpyObject((Ullong)(hashfunc_cycles)),
-		NRpyObject((Ullong)(penality_cycles)),
-		NRpyObject((Ullong)(hypcompute_first_section_cycles)),
-		NRpyObject((Ullong)(hypload_cycles)),
+		NRpyObject(total_cycles_),
+		NRpyObject(hypcompute_cycles_),
+		NRpyObject(io_cycles_),
+		NRpyObject(push_cycles_),
+		NRpyObject(pop_cycles_),
+		NRpyObject(decode_cycles_),
+		NRpyObject(hashfunc_cycles_),
+		NRpyObject(penality_cycles_),
+		NRpyObject(hypcompute_first_section_cycles_),
+		NRpyObject(hypload_cycles_),
 		NRpyObject((Ullong)(nbyte_written_heap)),
 		NRpyObject((Ullong)(nbyte_loaded_heap)),
 		NRpyObject((Ullong)(nbyte_written)),
@@ -1837,14 +1742,15 @@ static PyMethodDef NRpyDNAcode_methods[] = {
 	 "stop_dpus()\n stop dpu pool"},
 	{"free_dpus", free_dpus, METH_VARARGS,
 	 "free_dpus()\n free dpu pool"},
+	{"print_and_reset_reg_max_heap",print_and_reset_reg_max_heap, METH_VARARGS,
+	 "print_and_reset_reg_max_heap()\n print_and_reset_reg_max_heap"},
 	{"encodestring", encodestring, METH_VARARGS,
 	 "int8_dna_array = encodestring(message_as_string)\n encode a message"},
 	{"decode", decode, METH_VARARGS,
 	 "(errcode, int8_message_array, nhypo, score, offset, seq) = decode(int8_dna_array[, nmessbits])\n\
 		decode a message optionally limited to nmessbits message bits"},
 	{"decode_DPU", decode_DPU, METH_VARARGS,
-	 "(errcode, int8_message_array, nhypo, score, offset, seq) = decode_DPU(int8_dna_array[, nmessbits])\n\
-		decode a message optionally limited to nmessbits message bits"},
+	 ""},
 	{"tryallcoderates", tryallcoderates, METH_VARARGS,
 	 "maxoffsets = tryallcoderates(hlimit, maxseq, int8_dna_array, leftprimer, rightprimer)\n\
 		maxoffsets[i] is maximum offset achieved in trying coderate i (in 1..6) limited by hlimit"},

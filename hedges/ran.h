@@ -4,7 +4,7 @@
 
 #ifdef DPU_ENV
 
-Ullong ranhash_int64(Ullong u)
+void  ranhash_int64(Ullong *ret, Ullong u)
 {
 	Ullong v = u * 3935559000370003845LL + 2691343689449507681LL;
 	v ^= v >> 21;
@@ -14,7 +14,7 @@ Ullong ranhash_int64(Ullong u)
 	v ^= v << 20;
 	v ^= v >> 41;
 	v ^= v << 5;
-	return v;
+	*ret = v;
 }
 
 Doub ran_double()
@@ -38,7 +38,8 @@ struct Ran
 	// ifdef _WINDOWS_  // timeseed() below now supposed to be portable?
 	Ran() : v(4101842887655102017LL), w(1)
 	{
-		Ullong j = timeseed();
+		//Ullong j = timeseed();
+		Ullong j = timeseedFixed();
 		u = j ^ v;
 		int64();
 		v = u;
@@ -66,6 +67,11 @@ struct Ran
 	{ // should change about every millisecond (only)
 		time_t x;
 		return 1000 * Ullong(time(&x)) + Ullong(clock());
+	}
+	Ullong timeseedFixed()
+	{ // should change about every millisecond (only)
+		time_t x;
+		return 1000;
 	}
 	//#endif
 };

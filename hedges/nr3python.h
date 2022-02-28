@@ -969,11 +969,14 @@ typedef complex<double> Complex; // default complex type
 typedef const NRvector<Int> VecInt_I;
 typedef NRvector<Int> VecInt, VecInt_O, VecInt_IO;
 
-typedef const NRvector<Uint> VecUint_I;
-typedef NRvector<Uint> VecUint, VecUint_O, VecUint_IO;
+typedef const NRvector<uint64_t> VecUint64_I;
+typedef NRvector<uint64_t> VecUint64, VecUint64_O, VecUint64_IO;
 
 typedef const NRvector<Llong> VecLlong_I;
 typedef NRvector<Llong> VecLlong, VecLlong_O, VecLlong_IO;
+
+typedef const NRvector<Ullong> VecUllong_I;
+typedef NRvector<Ullong> VecUllong, VecUllong_O, VecUllong_IO;
 
 typedef const NRvector<Ullong> VecUllong_I;
 typedef NRvector<Ullong> VecUllong, VecUllong_O, VecUllong_IO;

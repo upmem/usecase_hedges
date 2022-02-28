@@ -1,0 +1,236 @@
+# equilibrage des tasklets
+
+L equilibreage des tasklet est mesuré en mode perf.
+Plus le nombre de strands a traiter par run et plus le hlimit est faible
+, plus les tasklet s equilibrent facilement. 
+Exmplication : Plus le hlimit est elevé, moins il a de chance d etre atteint par chaque
+tasklet, et donc plus la variance du nombre d hypothese calculé est importante (variance entre tasklet).
+Plus cette variance est elevee, plus il faut la compenser par un nombre de strands élevé.
+Le systeme agit comme un filtre de moyennage.
+
+Limitation :1) L implementation actuelle ne permet pas d excerder hlimit = 50k (il faut mettre 49 k pour 
+               eviter un deadlock qui se produit pafois, pas compris), pour NR_TASKLET=16 
+               a cause de la capacité MRAM.
+            2) La taille de I, packet d entree a decoder ne peut pas exceder 510 strands = > (510, 300)
+               Pas encore compris mais c est surement du a un dépassement en WRAM lors du calcul des 
+               pointeurs des tenseurs IO.
+
+
+# sur dpu-statistics, on voit 2 primitives DPU qui prennent beaucoup de cycles:
+__udiv64 , __muldi3
+
+                                   __umoddi3 (#occ =    16855) = 	0.390536
+                                ranhash_int64 (#occ =    53099) = 	1.230322
+                                  dnacallowed (#occ =    56324) = 	1.305046
+                                  heap_mining (#occ =    80697) = 	1.869777
+                        init_from_predecessor (#occ =   162411) = 	3.763118
+                                  __bootstrap (#occ =   227026) = 	5.260270
+                                     __muldi3 (#occ =   440949) = 	10.216939
+                                     heap_pop (#occ =   510669) = 	11.832376
+                                       decode (#occ =   773437) = 	17.920800
+                                    heap_push (#occ =   787371) = 	18.243656
+                                     __udiv64 (#occ =  1170820) = 	27.128300
+
+
+Apres analyse du .s du decoder, on ne retrouve pas directement l'appel a ces primitives,
+mais aux fonctions du dessus : 
+
+[__udiv64] est appellé par __umoddi3 (vu dans dpu-rt ) :
+
+umoddi3.c 
+
+ *
+ * This is the actual libcall implementation, as requested by the compiler.
+ */
+#include <stdint.h>
+extern uint64_t
+__udiv64(uint64_t dividend, uint64_t divider, int ask_remainder);
+
+uint64_t
+__umoddi3(uint64_t dividend, uint64_t divider)
+{
+    return __udiv64(dividend, divider, 1);
+}
+
+
+et __umoddi3 est appellé dans le calcul du hash , autour ranhash_int64
+
+.Ltmp823:
+        //DEBUG_VALUE: ranhash_int64:v <- $d0
+        .loc    8 16 9 is_stmt 1                // hedges/../hedges/ran.h:16:9
+        lslx r2, r1, 5
+        lsl_add r2, r2, r0, 5
+        lsl r3, r1, 5
+        .loc    8 16 4 is_stmt 0                // hedges/../hedges/ran.h:16:4
+        xor r1, r3, r1
+.Ltmp824:
+        xor r0, r2, r0
+.Ltmp825:
+        //DEBUG_VALUE: ranhash_int64:v <- $d0
+        .loc    4 215 97 is_stmt 1              // hedges/dpu_hedges_decoder.c:215:97
+        move.s d2, r14
+        .loc    4 215 95 is_stmt 0              // hedges/dpu_hedges_decoder.c:215:95
+        call r23, __umoddi3
+.Ltmp826:
+        .loc    4 215 3                         // hedges/dpu_hedges_decoder.c:215:3
+        move r0, r1
+        ld d18, r22, -32
+        ld d16, r22, -24
+        ld d14, r22, -16
+.Ltmp827:
+        ld d22, r22, -8
+        jump r23
+.Ltmp828:
+.Lfunc_end42:
+
+
+[__muldi3] est aussi utilisé par ranhash_int64 :
+
+
+Il est directement visible dans le .s
+
+.Ltmp983:
+        //DEBUG_VALUE: ranhash_int64:u <- $d0
+        .loc    8 9 15 is_stmt 1                // hedges/../hedges/ran.h:9:15
+        call r23, __muldi3
+
+
+# hlimit necessaire pour decodage sans erreur CPU
+
+Ci dessous on remarque que MAX HEAP HOST est 935K, ce qui ne rentre pas dans 1 DPU.
+La question est donc : 
+
+1 ) Est ce que 935557 est trop excessif, due aux taux d'erreur par défait (srate, drate, irate) = 1.5 * array([0.0238, 0.0082, 0.0039]) qui ne reflete pas la réalité.
+
+2 ) Si Il faut absolument avoir ~1 M hypotheses, il faut trouver un schema différent de // sur DPU.
+
+[HEDGES TEST] for each packet, these statistics are shown in two groups:
+[HEDGES TEST] 1.1 HEDGES decode failures, 1.2 HEDGES bytes thus declared as erasures
+[HEDGES TEST] 1.3 R-S total errors detected in packet, 1.4 max errors detected in a single decode
+[HEDGES TEST] 2.1 R-S reported as initially-uncorrected-but-recoverable total, 2.2 same, but max in single decode
+[HEDGES TEST] 2.3 R-S total error codes; if zero, then R-S corrected all errors
+[HEDGES TEST] 2.4 Actual number of byte errors when compared to known plaintext input
+[HEDGES TEST] CR index 3 : 0.5
+[HEDGES TEST] real inner CR for hedges (inner) level  0.413333333333
+[HEDGES TEST] test_dpu_encoder False
+[HEDGES TEST] test_dpu_decoder False
+[HEDGES TEST] test_dpu_statistics False
+[HEDGES TEST] npackets 10
+[HEDGES TEST] hlimit 1000000
+[HEDGES TEST] dpu_profiling 1
+[MAX HEAP HOST] 935557
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  4.00114492446
+[CPU] packet   0: (bad Decode :   7, reasures :  50, tot_detect :137, max_detect :   7) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 989165
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  5.24950553983
+[CPU] packet   1: (bad Decode :  10, reasures :  86, tot_detect :222, max_detect :  12) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 873407
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  4.48779700996
+[CPU] packet   2: (bad Decode :   9, reasures : 111, tot_detect :242, max_detect :  12) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 920279
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  3.50055955022
+[CPU] packet   3: (bad Decode :   5, reasures :  59, tot_detect :136, max_detect :   9) ( tot_uncorrect :   1, max_uncorrect :   1, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 966928
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  4.19734706369
+[CPU] packet   4: (bad Decode :   7, reasures :  41, tot_detect :150, max_detect :   9) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 885017
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  4.74005190836
+[CPU] packet   5: (bad Decode :   9, reasures :  84, tot_detect :245, max_detect :  12) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 920846
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  4.288199954
+[CPU] packet   6: (bad Decode :   6, reasures :  83, tot_detect :189, max_detect :   9) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 998509
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  4.20917571211
+[CPU] packet   7: (bad Decode :   8, reasures :  57, tot_detect :165, max_detect :  10) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 985141
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  3.97096878814
+[CPU] packet   8: (bad Decode :   8, reasures :  88, tot_detect :218, max_detect :  12) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 967102
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  4.69865740024
+[CPU] packet   9: (bad Decode :  11, reasures :  94, tot_detect :253, max_detect :  13) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+all packets OK
+TOT: (  80  753 1957  105) (   1    1    0    0)
+
+
+
+
+En divisant pas ~2 les 3 taux d'erreur, on obtient [MAX HEAP HOST] 92432 sur 10 pacquets.
+Ce qui laisserait envisager la faisabilité sur DPU.
+
+[HEDGES TEST] for each packet, these statistics are shown in two groups:
+[HEDGES TEST] 1.1 HEDGES decode failures, 1.2 HEDGES bytes thus declared as erasures
+[HEDGES TEST] 1.3 R-S total errors detected in packet, 1.4 max errors detected in a single decode
+[HEDGES TEST] 2.1 R-S reported as initially-uncorrected-but-recoverable total, 2.2 same, but max in single decode
+[HEDGES TEST] 2.3 R-S total error codes; if zero, then R-S corrected all errors
+[HEDGES TEST] 2.4 Actual number of byte errors when compared to known plaintext input
+[HEDGES TEST] CR index 3 : 0.5
+[HEDGES TEST] real inner CR for hedges (inner) level  0.413333333333
+[HEDGES TEST] test_dpu_encoder False
+[HEDGES TEST] test_dpu_decoder False
+[HEDGES TEST] test_dpu_statistics False
+[HEDGES TEST] npackets 10
+[HEDGES TEST] hlimit 92500
+[HEDGES TEST] dpu_profiling 1
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[MAX HEAP HOST] 75857
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.582011191756
+[CPU] packet   0: (bad Decode :   4, reasures :  40, tot_detect : 72, max_detect :   4) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 84646
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.563278871792
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[CPU] packet   1: (bad Decode :   4, reasures :  21, tot_detect : 62, max_detect :   5) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 90683
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.491317970213
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[CPU] packet   2: (bad Decode :   1, reasures :   6, tot_detect : 21, max_detect :   2) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 84754
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.564121633826
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[CPU] packet   3: (bad Decode :   4, reasures :  45, tot_detect : 95, max_detect :   6) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 68953
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.48846174404
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[CPU] packet   4: (bad Decode :   2, reasures :  11, tot_detect : 33, max_detect :   3) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 90719
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.565354249993
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[CPU] packet   5: (bad Decode :   4, reasures :  39, tot_detect : 73, max_detect :   4) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 91156
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.528843235719
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[CPU] packet   6: (bad Decode :   3, reasures :  24, tot_detect : 47, max_detect :   4) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 71302
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.532752619853
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[CPU] packet   7: (bad Decode :   2, reasures :   6, tot_detect : 38, max_detect :   4) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[MAX HEAP HOST] 92432
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.508761851961
+[CPU] packet   8: (bad Decode :   2, reasures :  12, tot_detect : 34, max_detect :   4) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+[MAX HEAP HOST] 86081
+[DPU HEAP_MAX_ITEM] 93000
+[CPU] (cpu_decoder) time [s]  0.503169417847
+[WARINIG][DPU] hlimit too big for DPU heap limit HEAP_MAX_ITEM
+[CPU] packet   9: (bad Decode :   1, reasures :   3, tot_detect : 22, max_detect :   3) ( tot_uncorrect :   0, max_uncorrect :   0, totercodes :   0, badbytes :   0) packet OK
+all packets OK
+TOT: (  27  207  497   39) (   0    0    0    0)
+

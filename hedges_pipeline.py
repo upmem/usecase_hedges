@@ -16,18 +16,20 @@ import NRpyDNAcode as code
 import NRpyRS as RS
 import sys
 
-dpuIntra = True
-singleShot = False
-# code.load_dpus()
+import csv
+
+
 test_dpu_encoder = False
 test_dpu_decoder = True
+test_dpu_statistics = False
+
 
 coderates = array([NaN, 0.75, 0.6, 0.5, 1./3., 0.25, 1./6.]
                   )  # table of coderates 1..6
 
 # user-settable parameters for this test
-coderatecode = 4  # test this coderate in coderaetes table above
-npackets = 20  # number of packets (of 255 strands each) to generate and test
+coderatecode = 3  # test this coderate in coderaetes table above
+npackets = 1  # number of packets (of 255 strands each) to generate and test)
 totstrandlen = 300  # total length of DNA strand
 
 strandIDbytes = 2  # ID bytes each strand for packet and sequence number
@@ -36,7 +38,7 @@ strandrunoutbytes = 2  # confirming bytes end of each strand (see paper)
 dpu_fake_packet_mul_factor = 2
 maxpacket = 1000
 dpu_profiling = 1
-hlimit = 49000  # maximum size of decode heap, see pape
+hlimit = 92500  # maximum size of decode heap, see pape
 leftprimer = "TCGAAGTCAGCGTGTATTGTATG"
 # for direct right appending (no revcomp)
 rightprimer = "TAGTGAGTGCGATTAAGCGTGTT"
@@ -66,14 +68,10 @@ code.setparams(8*strandIDbytes, MAXSEQ, NSTAK,
 bytesperstrand = int(strandlen*coderates[coderatecode]/4.)
 messbytesperstrand = bytesperstrand - strandIDbytes - \
     strandrunoutbytes  # payload bytes per strand
-print "CR ", coderates[coderatecode]
-print "real CR for hedges (inner) level ", 1/((totstrandlen * 2.0) / (bytesperstrand * 8))
-
-print ''
 # payload bytes per packet of 255 strands
 messbytesperpacket = strandsperpacket * messbytesperstrand
 # set code rate with left and right primers
-print("setcoderates : leftprimer ", leftprimer, " rprimer ", rightprimer)
+# print("setcoderates : leftprimer ", leftprimer, " rprimer ", rightprimer)
 code.setcoderate(coderatecode, leftprimer, rightprimer)
 # set DNA constraints (see paper)
 code.setdnaconstraints(GC_window, max_GC, min_GC, max_hpoly_run)
@@ -172,7 +170,19 @@ def messtodna_DPU(mpacket):
     return dpacket
 
 
-def dnatomess_dpu(dnapacket, decoded_reference):
+def meanEff(inst, cyc):
+    inst = 1. * inst
+    cyc = 1. * cyc
+    e = numpy.divide(inst * 1., cyc)
+    em = numpy.mean(e)
+    c = numpy.sum(cyc)
+    cm = numpy.mean(cyc)
+    i = numpy.sum(inst)
+    ci = numpy.mean(inst)
+    return c, i, cm, ci, e, em
+
+
+def dnatomess_dpu(dnapacket, decoded_reference, cpu_time):
     # HEDGES decode strands of DNA (assumed ordered by packet and ID number) to a packet
     baddecodes = 0
     erasures = 0
@@ -185,7 +195,6 @@ def dnatomess_dpu(dnapacket, decoded_reference):
     # print dnapacket.shape
     for i in range(dpu_fake_packet_mul_factor - 1):
         dnapacket = concatenate((dnapacket,  dnapacket))
-    print dnapacket.shape
 
     code.load_dpu_decoder()
     code.push_global_params_dpus()
@@ -193,7 +202,7 @@ def dnatomess_dpu(dnapacket, decoded_reference):
         _NR_TASKLETS,
         _clocks_per_sec,
         _host_time,
-        total_inst,
+        _total_cycles,
         _hypcompute_cycles,
         _io_cycles,
         _push_cycles,
@@ -209,7 +218,6 @@ def dnatomess_dpu(dnapacket, decoded_reference):
         _nbyte_loaded) = code.decode_DPU(
         dnapacket[0:maxpacket, :], 8*bytesperstrand, 2 if dpu_profiling else 0)
     code.stop_dpus()
-
     if dpu_profiling:
         code.load_dpu_decoder()
         code.push_global_params_dpus()
@@ -234,100 +242,162 @@ def dnatomess_dpu(dnapacket, decoded_reference):
             dnapacket[0:maxpacket, :], 8*bytesperstrand, 1)
         code.stop_dpus()
 
-        total_cycles = total_cycles + 0.0001
-        io_cycles = io_cycles + 0.0001
-        hypcompute_cycles = hypcompute_cycles + 0.0001
-        push_cycles = push_cycles + 0.0001
-        pop_cycles = pop_cycles + 0.0001
-        decode_cycles = decode_cycles + 0.0001
-        hashfunc_cycles = hashfunc_cycles + 0.0001
-        penality_cycles = penality_cycles + 0.0001
-        hypcompute_first_section_cycles = hypcompute_first_section_cycles + 0.0001
-        hypload_cycles = hypload_cycles + 0.0001
-        total_cycles = 1.0 * total_cycles / NR_TASKLETS
-        total_inst = 1.0 * total_inst / NR_TASKLETS
-        dpu_time = 1.0 * total_cycles / clocks_per_sec
+        totalc,  totali, totalcm, totalim,  totale, totalem = meanEff(
+            _total_cycles, total_cycles)
+        pushc, pushi, pushcm, pushim, pushe, pushem = meanEff(
+            _push_cycles, push_cycles)
+        popc, popi, popcm, popim, pope, popem = meanEff(
+            _pop_cycles, pop_cycles)
+        hypcomputec, hypecomputei, hypcomputecm, hypcomputeim,  hypcomputee, hypcomputeem = meanEff(
+            _hypcompute_cycles, hypcompute_cycles)
+        ioc, ioi, iocm, ioim, ioe, ioem = meanEff(_io_cycles, io_cycles)
+        decodec, decodei, decodecm, decodeim,  decodee, decodeem = meanEff(
+            _decode_cycles, decode_cycles)
+        hashfuncc, hashfunci, hashfuncm, hashfuncim,  hashfunce, hashfuncem = meanEff(
+            _hashfunc_cycles, hashfunc_cycles)
+        penalityc, penalityi, penalitycm, penalityim, penalitye, penalityem = meanEff(
+            _penality_cycles, penality_cycles)
+        hypcompute_first_sectionc, hypcompute_first_sectioni, hypcompute_first_sectioncm,  hypcompute_first_sectionim, hypcompute_first_sectione, hypcompute_first_sectionem = meanEff(
+            _hypcompute_first_section_cycles, hypcompute_first_section_cycles)
+        hyploadc, hyploadi, hyploadcm, hyploadim, hyploade, hyploadem = meanEff(
+            _hypload_cycles, hypload_cycles)
 
-        print "Tasklet Balance Quality % ", dpu_time / host_time
-        print "Cyc/Ins eff % ", 1.0*total_inst / total_cycles
-        print "[DPU][PERF] Host Time\n{:.2f} secs".format(host_time)
-        print "[DPU][PERF] DpuTime\n{:.2f} secs".format(dpu_time)
-        print "[DPU][PERF] MegaCycles\n{:.2f}".format(total_cycles * 1e-6)
-        print "[DPU][PERF] MegaInstructions\n{:.2f}".format(total_inst * 1e-6)
-        print "[DPU][PERF] Eff % \n{:.2f}".format(1.0 * total_inst / total_cycles)
+        dpu_time = 1.0 * totalcm / clocks_per_sec
+        print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Tasklet Balancing % ", dpu_time / host_time
+        print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Host Time\n{:.2f} secs".format(host_time)
+        print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu Time\n{:.2f} secs".format(dpu_time)
+        print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu MegaCycles\n{:.2f}".format(totalcm * 1e-6)
+        print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu MegaInst\n{:.2f}".format(totalim * 1e-6)
+        print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu Pipeline Eff % \n{:.2f}".format(totalem)
 
-        print "[DPU][PERF] IO (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(io_cycles * 1e-6 / NR_TASKLETS, (100. * io_cycles) / (NR_TASKLETS * total_cycles))
-        print "[DPU][PERF] pop (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(pop_cycles * 1e-6 / NR_TASKLETS, (100. * pop_cycles) / (NR_TASKLETS * total_cycles))
-        print "[DPU][PERF] decode (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(decode_cycles * 1e-6 / NR_TASKLETS, (100. * decode_cycles) / (NR_TASKLETS * total_cycles))
-        print "[DPU][PERF] hashfunc (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(hashfunc_cycles * 1e-6 / NR_TASKLETS, (100. * hashfunc_cycles) / (NR_TASKLETS * total_cycles))
-        print "[DPU][PERF] penality (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(penality_cycles * 1e-6 / NR_TASKLETS, (100. * penality_cycles) / (NR_TASKLETS * total_cycles))
-        print "[DPU][PERF] hypcompute_first_section (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(hypcompute_first_section_cycles * 1e-6 / NR_TASKLETS, (100. * hypcompute_first_section_cycles) / (NR_TASKLETS * total_cycles))
-        print "[DPU][PERF] hypload (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(hypload_cycles * 1e-6 / NR_TASKLETS, (100. * hypload_cycles) / (NR_TASKLETS * total_cycles))
+        print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) IO (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(iocm * 1e-6, ioc, 100 * iocm / totalcm)
+        print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) push (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(pushcm * 1e-6, 100 * pushcm / totalcm)
+        print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) pop (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(popc * 1e-6, 100 * popc / totalc)
+        print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) decode (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(decodec * 1e-6, 100 * decodec / totalc)
+        print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) hashfunc (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(hashfuncc * 1e-6, 100 * hashfuncc / totalc)
+        print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) penality (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(penalityc * 1e-6, 100 * penalityc / totalc)
+        print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) hypcompute_first_section (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(hypcompute_first_sectionc * 1e-6, 100 * hypcompute_first_sectionc / totalc)
+        print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) hypload (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(hyploadc * 1e-6, 100 * hyploadc / totalc)
+        print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) hypcompute (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(hypcomputec * 1e-6, 100 * hypcomputec / totalc)
 
-        print "[DPU][PERF] push (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(push_cycles*1e-6 / NR_TASKLETS, (100. * push_cycles) / (NR_TASKLETS * total_cycles))
-        print "[DPU][PERF] hypcompute (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(hypcompute_cycles*1e-6 / NR_TASKLETS, (100. * hypcompute_cycles) / (NR_TASKLETS * total_cycles))
-
-        print "[DPU][PERF] IO (Eff %) \n{:.2f} ".format(_io_cycles / io_cycles)
-        print "[DPU][PERF] pop (Eff %) \n{:.2f} ".format(_pop_cycles / pop_cycles)
-        print "[DPU][PERF] decode (Eff %) \n{:.2f} ".format(_decode_cycles / decode_cycles)
-        print "[DPU][PERF] hashfunc (Eff %) \n{:.2f} ".format(_hashfunc_cycles / hashfunc_cycles)
-        print "[DPU][PERF] penality (Eff %) \n{:.2f} ".format(_penality_cycles / penality_cycles)
-        print "[DPU][PERF] hypcompute_first_section (Eff %) \n{:.2f} ".format(_hypcompute_first_section_cycles / hypcompute_first_section_cycles)
-        print "[DPU][PERF] hypload (Eff %) \n{:.2f} ".format(_hypload_cycles/hypload_cycles)
-        print "[DPU][PERF] push (Eff %) \n{:.2f}  ".format(_push_cycles / push_cycles)
-        print "[DPU][PERF] hypcompute (Eff %) \n{:.2f} ".format(_hypcompute_cycles / hypcompute_cycles)
-        print "[DPU][PERF] hypcompute (Inst ) \n{:.2f} ".format(_hypcompute_cycles)
-        print "[DPU][PERF] hypcompute (Cyc ) \n{:.2f} ".format(hypcompute_cycles)
+        print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) IO (Eff %) \n{:.2f} ".format(ioem)
+        print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) push (Eff %) \n{:.2f}  ".format(pushem)
+        print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) pop (Eff %) \n{:.2f} ".format(popem)
+        print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) decode (Eff %) \n{:.2f} ".format(decodeem)
+        print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hashfunc (Eff %) \n{:.2f} ".format(hashfuncem)
+        print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) penality (Eff %) \n{:.2f} ".format(penalityem)
+        print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hypcompute_first_section (Eff %) \n{:.2f} ".format(hypcompute_first_sectionem)
+        print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hypload (Eff %) \n{:.2f} ".format(hyploadem)
+        print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hypcompute (Eff %) \n{:.2f} ".format(hypcomputeem)
 
         nbyte_written_heap = 1e-6 * nbyte_written_heap / NR_TASKLETS
         nbyte_loaded_heap = 1e-6 * nbyte_loaded_heap / NR_TASKLETS
         nbyte_written = 1e-6 * nbyte_written / NR_TASKLETS
         nbyte_loaded = 1e-6 * nbyte_loaded / NR_TASKLETS
-
-        print "[DPU][BW] W (Gbytes) (heap) \n{:.2f}  ".format(nbyte_written_heap)
-        print "[DPU][BW] R (Gbytes) (heap)  \n{:.2f} ".format(nbyte_loaded_heap)
-        print "[DPU][BW] W (Gbytes) (core func) \n{:.2f} ".format(nbyte_written)
-        print "[DPU][BW] R (Gbytes) (core func) \n{:.2f} ".format(nbyte_loaded)
-
         w_global = nbyte_written_heap + nbyte_written
         r_global = nbyte_loaded_heap + nbyte_loaded
 
-        print "[DPU][BW] W (Gbytes) (global) \n{:.2f}  ".format(w_global)
-        print "[DPU][BW] R (Gbytes)(global) \n{:.2f}  ".format(r_global)
+        print "[DPU][TASKLET BANDWIDTH] W (Gbytes) (global) \n{:.2f}  ".format(w_global)
+        print "[DPU][TASKLET BANDWIDTH] R (Gbytes) (global) \n{:.2f}  ".format(r_global)
+        print "[DPU][TASKLET BANDWIDTH] W (Gbytes) (heap) \n{:.2f}  ".format(nbyte_written_heap)
+        print "[DPU][TASKLET BANDWIDTH] R (Gbytes) (heap)  \n{:.2f} ".format(nbyte_loaded_heap)
+        print "[DPU][TASKLET BANDWIDTH] W (Gbytes) (core func) \n{:.2f} ".format(nbyte_written)
+        print "[DPU][TASKLET BANDWIDTH] R (Gbytes) (core func) \n{:.2f} ".format(nbyte_loaded)
 
-        print "[DPU][BW] W BW (Gbytes/sec) (heap) \n{:.2f}  ".format(nbyte_written_heap/dpu_time)
-        print "[DPU][BW] R BW (Gbytes/sec) (heap)  \n{:.2f} ".format(nbyte_loaded_heap/dpu_time)
-        print "[DPU][BW] W BW (Gbytes/sec) (core func) \n{:.2f} ".format(nbyte_written/dpu_time)
-        print "[DPU][BW] R BW (Gbytes/sec) (core func) \n{:.2f} ".format(nbyte_loaded/dpu_time)
-        print "[DPU][BW] W BW (Gbytes/sec) (global) \n{:.2f}  ".format(w_global/dpu_time)
-        print "[DPU][BW] R BW (Gbytes/sec) (global) \n{:.2f}  ".format(r_global/dpu_time)
+        print "[DPU][TASKLET BANDWIDTH] W BW (Gbytes/sec) (global) \n{:.2f}  ".format(w_global/dpu_time)
+        print "[DPU][TASKLET BANDWIDTH] R BW (Gbytes/sec) (global) \n{:.2f}  ".format(r_global/dpu_time)
+        print "[DPU][TASKLET BANDWIDTH] W BW (Gbytes/sec) (heap) \n{:.2f}  ".format(nbyte_written_heap/dpu_time)
+        print "[DPU][TASKLET BANDWIDTH] R BW (Gbytes/sec) (heap)  \n{:.2f} ".format(nbyte_loaded_heap/dpu_time)
+        print "[DPU][TASKLET BANDWIDTH] W BW (Gbytes/sec) (core func) \n{:.2f} ".format(nbyte_written/dpu_time)
+        print "[DPU][TASKLET BANDWIDTH] R BW (Gbytes/sec) (core func) \n{:.2f} ".format(nbyte_loaded/dpu_time)
 
-        print "[DPU][BW] W (bytes/cycl) BW (heap push) \n{:.4f}  ".format(nbyte_written_heap * 1e6/push_cycles)
-        print "[DPU][BW] W (bytes/cycl) BW (heap pop) \n{:.4f}  ".format(nbyte_loaded_heap * 1e6/pop_cycles)
+        dimm_server = 20.
+        dpu_cpu_acc = 1.*cpu_time / host_time
+        rank_cpu_acc = (64. * cpu_time) / host_time
+        dimm_cpu_acc = (128. * cpu_time) / host_time
+        server_cpu_acc = (dimm_server*128. * cpu_time) / host_time
+        Wdimm = 43.
+        Wcpu = 50.
 
-        # runs without perf, for statiscit mode
-        code.load_dpu_decoder()
-        code.push_global_params_dpus()
-        (errcode, mess_, _, _, _, _,
-            NR_TASKLETS,
-            clocks_per_sec,
-            _,
-            _,
-            hypcompute_cycles,
-            _,
-            push_cycles,
-            pop_cycles,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _) = code.decode_DPU(
-            dnapacket[0:maxpacket, :], 8*bytesperstrand, 0)
-        code.stop_dpus()
+        print "[DPU/CPU]  Acceleration {:.3f} ".format(dpu_cpu_acc)
+        print "[RANK/CPU] Acceleration {:.3f} ".format(rank_cpu_acc)
+        print "[DIMM/CPU] Acceleration {:.3f} ".format(dimm_cpu_acc)
+        print "[{} DIMM CLOUD /CPU] Acceleration {:.3f} ".format(dimm_server, server_cpu_acc)
+
+        print "[RANK/CPU] Energy Efficiency Gain {:.3f} ".format(rank_cpu_acc * 2 * (Wcpu/Wdimm))
+        print "[DIMM/CPU] Energy Efficiency Gain {:.3f} ".format(dimm_cpu_acc * (Wcpu/Wdimm))
+        print "[{} DIMM CLOUD /CPU] Energy Efficiency Gain {:.3f} ".format(dimm_server, server_cpu_acc * (Wcpu/(Wdimm)))
+        hdecoder = ['CR', 'hlimit',  'srate', 'drate', 'irate']
+        ddecoder = [[coderates[coderatecode],   hlimit, srate, drate, irate]]
+        hbw = ['', 'total', 'heap', 'corefunc']
+        dbw = [
+            ['dpu R (total)',  r_global,  nbyte_loaded_heap, nbyte_loaded],
+            ['dpu W (total)', w_global, nbyte_written_heap, nbyte_written],
+            ['dpu R (Gb/s)',  w_global/dpu_time, nbyte_written_heap /
+                dpu_time, nbyte_written/dpu_time],
+            ['dpu W (GB/s)',  r_global/dpu_time, nbyte_loaded_heap /
+                dpu_time,  nbyte_loaded/dpu_time]
+        ]
+        hperf = ['', 'total', 'io', 'heap push', 'heap pop', 'decode',
+                 'heap_hasging', 'penality', 'hypload', 'hypcompute']
+        dperf = [
+            ['host (s)', host_time],
+            ['dpu Tasklet Balancing %', dpu_time/host_time],
+            ['dpu % total', 1, iocm/totalcm, pushcm/totalcm, popcm / totalcm, decodecm/totalcm, hashfuncm/totalcm,
+                penalitycm/totalcm, hyploadcm/totalcm, hypcomputecm/totalcm],
+            ['dpu cycles', totalcm, iocm, pushcm,  popcm, decodecm, hashfuncm,
+                penalitycm,  hyploadcm, hypcomputecm],
+            ['dpu inst', totalim, ioim, pushim, popim, decodeim, hashfuncim,
+                penalityim,  hyploadim, hypcomputeim],
+            ['dpu pipeline efficiency', totalem, 'NC', pushem, popem, decodeem, hashfuncem,
+                penalityem,  hyploadem, hypcomputeem],
+        ]
+        hgain = ['', 'acc', 'energy']
+        dgain = [
+            ['dpu/cpu', '{:.3f}'.format(dpu_cpu_acc), ],
+            ['rank/cpu', '{:.3f}'.format(rank_cpu_acc),
+             '{:.3f}'.format(rank_cpu_acc * 2 * (Wcpu/Wdimm))],
+            ['dimm/cpu',   '{:.3f}'.format(dimm_cpu_acc),
+             '{:.3f}'.format(dimm_cpu_acc * 1.0 * (Wcpu/Wdimm))],
+            ['clouddimm/cpu',  '{:.3f}'.format(server_cpu_acc),
+             '{:.3f}'.format(server_cpu_acc * (Wcpu/Wdimm))]
+        ]
+
+        if test_dpu_statistics:
+            # runs without perf, for statiscit mode
+            code.load_dpu_decoder()
+            code.push_global_params_dpus()
+            (errcode, mess_, _, _, _, _,
+                NR_TASKLETS,
+                clocks_per_sec,
+                _,
+                _,
+                hypcompute_cycles,
+                _,
+                push_cycles,
+                pop_cycles,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _) = code.decode_DPU(
+                dnapacket[0:maxpacket, :], 8*bytesperstrand, 0)
+            code.stop_dpus()
+        print '-----------CSV--------------'
+        writer = csv.writer(sys.stdout)
+        writer.writerow(hdecoder)
+        writer.writerows(ddecoder)
+        writer.writerow(hbw)
+        writer.writerows(dbw)
+        writer.writerow(hperf)
+        writer.writerows(dperf)
+        writer.writerow(hgain)
+        writer.writerows(dgain)
+        print '----------------------------'
 
     for i in range(strandsperpacket):
         if i + 1 > maxpacket:
@@ -340,13 +410,6 @@ def dnatomess_dpu(dnapacket, decoded_reference):
         lenmin = min(len(mess), bytesperstrand)
         mpacket[i, :lenmin] = mess[:lenmin]
         epacket[i, :lenmin] = 0
-        # print "strand ", i
-        # print decoded_reference[i, :]
-        # print mpacket[i, :]
-        mse = sum(abs(mpacket[i, :] - decoded_reference[i, :])**2)
-        # print 'DECODER MSE [CPU/DPU] ON SINGLE STRAND ', mse
-        # exit(0)
-        # raw_input("Press Enter to continue...")
     return (mpacket, epacket, baddecodes, erasures)
 
 
@@ -360,7 +423,6 @@ def dnatomess(dnapacket):
     epacket = ones([strandsperpacket, bytesperstrand], dtype=uint8)
 
     for i in range(strandsperpacket):
-        # print(dnapacket[i, :])
         if i + 1 > maxpacket:
             break
         (errcode, mess, _, _, _, _, host_time_) = code.decode(
@@ -372,7 +434,7 @@ def dnatomess(dnapacket):
         mpacket[i, :lenmin] = mess[:lenmin]
         epacket[i, :lenmin] = 0
         host_time = host_time + host_time_
-
+    code.print_and_reset_reg_max_heap()
     return (mpacket, epacket, baddecodes, erasures, host_time)
 
 # functions to R-S correct a packet and extract its payload to an array of bytes
@@ -405,9 +467,10 @@ def correctmesspacket(packetin, epacket):
             packet[i, ((j+i) % messbytesperstrand)+strandIDbytes] = decoded[i]
     return (packet, tot_detect, tot_uncorrect, max_detect, max_uncorrect, toterrcodes)
 
+# extract plaintext from a corrected packet
+
 
 def extractplaintext(cpacket):
-    # extract plaintext from a corrected packet
     plaintext = zeros(strandsperpacketmessage*messbytesperstrand, dtype=uint8)
     for i in range(strandsperpacketmessage):
         plaintext[i*messbytesperstrand:(i+1)*messbytesperstrand] = (
@@ -415,10 +478,10 @@ def extractplaintext(cpacket):
     return plaintext
 
 # function to create errors in a bag (or packet) of DNA strands
+# for testing: create errors in a bag of strands
 
 
 def createerrors(dnabag, srate, drate, irate):
-    # for testing: create errors in a bag of strands
     (nrows, ncols) = dnabag.shape
     newbag = zeros([nrows, ncols], dtype=uint8)
     for i in range(nrows):
@@ -429,20 +492,26 @@ def createerrors(dnabag, srate, drate, irate):
 
 
 # DO THE TEST
-print "for each packet, these statistics are shown in two groups:"
-print "1.1 HEDGES decode failures, 1.2 HEDGES bytes thus declared as erasures"
-print "1.3 R-S total errors detected in packet, 1.4 max errors detected in a single decode"
-print "2.1 R-S reported as initially-uncorrected-but-recoverable total, 2.2 same, but max in single decode"
-print "2.3 R-S total error codes; if zero, then R-S corrected all errors"
-print "2.4 Actual number of byte errors when compared to known plaintext input"
+print "[HEDGES TEST] for each packet, these statistics are shown in two groups:"
+print "[HEDGES TEST] 1.1 HEDGES decode failures, 1.2 HEDGES bytes thus declared as erasures"
+print "[HEDGES TEST] 1.3 R-S total errors detected in packet, 1.4 max errors detected in a single decode"
+print "[HEDGES TEST] 2.1 R-S reported as initially-uncorrected-but-recoverable total, 2.2 same, but max in single decode"
+print "[HEDGES TEST] 2.3 R-S total error codes; if zero, then R-S corrected all errors"
+print "[HEDGES TEST] 2.4 Actual number of byte errors when compared to known plaintext input"
+print "[HEDGES TEST] CR index {} : {}".format(coderatecode, coderates[coderatecode])
+print "[HEDGES TEST] real inner CR for hedges (inner) level ", 1/((totstrandlen * 2.0) / (bytesperstrand * 8))
+print '[HEDGES TEST] test_dpu_encoder', test_dpu_encoder
+print '[HEDGES TEST] test_dpu_decoder', test_dpu_decoder
+print '[HEDGES TEST] test_dpu_statistics', test_dpu_statistics
+print '[HEDGES TEST] npackets', npackets
+print '[HEDGES TEST] hlimit', hlimit
+print '[HEDGES TEST] dpu_profiling', dpu_profiling
 
-print "load dpus"
-# code.push_global_params_dpus()
-print "push globals to dpus"
 badpackets = 0
+badpackets_ = 0
 Totalbads = zeros(8, dtype=int)
+Totalbads_ = zeros(8, dtype=int)
 
-print "npackets", npackets
 
 for ipacket in range(npackets):
 
@@ -461,7 +530,7 @@ for ipacket in range(npackets):
         code.stop_dpus()
         # encode to strands of DNA containing payload messplain
         mse = sum(abs(dnapack - dnapack_dpu)**2)
-        print "ENCODER MSE [CPU/DPU] ", mse
+        print "[HEDGES][ENCODER][MSE (CPU - DPU)]", mse
 
     # simulate errors in DNA synthesis and sequencing
     obspack = createerrors(dnapack, srate, drate, irate)
@@ -469,22 +538,9 @@ for ipacket in range(npackets):
     # decode
     (dpacket, epacket, baddecodes, erasures, host_time) = dnatomess(
         obspack)  # decode the strands
-    print "(cpu_decoder) time= ", host_time
 
-    if test_dpu_decoder:
-        # code.load_dpu_decoder()
-        # code.push_global_params_dpus()
-        (dpacket_dpu, epacket_dpu, baddecodes_dpu, erasures_dpu) = dnatomess_dpu(
-            obspack,  dpacket)  # decode the strands
-        # code.stop_dpus()
-        print"host res (real packet) =>", dpacket
-        print"dpu  res (real packet) =>", dpacket_dpu
-
-        mse = sum(abs(dpacket_dpu - dpacket)**2)
-        # print 'dpacket shape', dpacket.shape
-        print '[HEDGES][DECODER][PACKET][NSTRANDS (WITH FAKE FOR PERF)=', dpu_fake_packet_mul_factor * dnapack.shape[0], ']', mse
-        exit(0)
-    raw_input("Press Enter to continue...")
+    cpu_time = host_time * dpu_fake_packet_mul_factor
+    print "[CPU] (cpu_decoder) time [s] ", cpu_time
 
     (cpacket, tot_detect, tot_uncorrect, max_detect, max_uncorrect,
      toterrcodes) = correctmesspacket(dpacket, epacket)
@@ -496,16 +552,54 @@ for ipacket in range(npackets):
     # print summary line
     Totalbads += array([baddecodes, erasures, tot_detect, max_detect,
                        tot_uncorrect, max_uncorrect, toterrcodes, badbytes])
-    print("packet %3d: (bad Decode : %3d, reasures : %3d, tot_detect :\
+    print("[CPU] packet %3d: (bad Decode : %3d, reasures : %3d, tot_detect :\
 %3d, max_detect : %3d) ( tot_uncorrect : %3d, max_uncorrect : \
 %3d, totercodes : %3d, badbytes : %3d)" % (ipacket,
                                            baddecodes, erasures, tot_detect, max_detect, tot_uncorrect,
                                            max_uncorrect, toterrcodes, badbytes)),
 
     print("packet OK" if badbytes == 0 else "packet NOT ok")
-    exit(0) if singleShot else None
-    continue
+
+    if test_dpu_decoder:
+        (dpacket_dpu, epacket_dpu, baddecodes_dpu, erasures_dpu) = dnatomess_dpu(
+            obspack,  dpacket, cpu_time)  # decode the strands
+        print"host res (real packet) =>", dpacket
+        print"dpu  res (real packet) =>", dpacket_dpu
+
+        mse = sum(abs(dpacket_dpu - dpacket)**2)
+        print '[HEDGES][DECODER][PACKET][NSTRANDS (WITH FAKE FOR PERF)=', dpu_fake_packet_mul_factor * dnapack.shape[0], ']', mse
+        print "[HEDGES][ENCODER][MSE (CPU - DPU)]", mse
+        assert(mse == 0)
+
+    if test_dpu_decoder:
+        (cpacket_, tot_detect_, tot_uncorrect_, max_detect_, max_uncorrect_,
+         toterrcodes_) = correctmesspacket(dpacket_dpu, epacket_dpu)
+
+        # check against ground truth
+        messcheck_ = extractplaintext(cpacket_)
+        badbytes_ = count_nonzero(messplain-messcheck_)
+
+        # print summary line
+        Totalbads_ += array([baddecodes_dpu, erasures_dpu, tot_detect_, max_detect_,
+                             tot_uncorrect_, max_uncorrect_, toterrcodes_, badbytes_])
+        print("[DPU] packet %3d: (bad Decode : %3d, reasures : %3d, tot_detect :\
+%3d,     max_detect : %3d) ( tot_uncorrect : %3d, max_uncorrect : \
+%3d,     totercodes : %3d, badbytes : %3d)" % (ipacket,
+                                               baddecodes_dpu, erasures_dpu, tot_detect_, max_detect_, tot_uncorrect_,
+                                               max_uncorrect_, toterrcodes_, badbytes_)),
+
+        print("[DPU] packet OK" if badbytes_ == 0 else "packet NOT ok")
+
     if badbytes:
         badpackets += 1
+    if test_dpu_decoder:
+        if badbytes_:
+            badpackets_ += 1
+
+
 print("all packets OK" if not badpackets else "some packets had errors!")
 print("TOT: (%4d %4d %4d %4d) (%4d %4d %4d %4d)" % tuple(Totalbads))
+
+if test_dpu_decoder:
+    print("[DPU] all packets OK" if not badpackets_ else "some packets had errors!")
+    print("[DPU] TOT: (%4d %4d %4d %4d) (%4d %4d %4d %4d)" % tuple(Totalbads_))

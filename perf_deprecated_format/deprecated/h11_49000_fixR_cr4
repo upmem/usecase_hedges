@@ -1,0 +1,102 @@
+npackets 20
+(cpu_decoder) time=  0.232992082965
+(510, 300)
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=18][NR_STRANDS=510][PERF_TYPE=2]
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=18][NR_STRANDS=510][PERF_TYPE=1]
+Tasklet Balance Quality %  0.836133061788
+Cyc/Ins eff %  0.924667391748
+[DPU][PERF] Host Time
+20.85 secs
+[DPU][PERF] DpuTime
+17.43 secs
+[DPU][PERF] MegaCycles
+6101.47
+[DPU][PERF] MegaInstructions
+5641.83
+[DPU][PERF] Eff % 
+0.92
+[DPU][PERF] IO (MegaCycle,  %) 
+0.11       0.00 
+[DPU][PERF] pop (MegaCycle,  %) 
+502.66       8.24 
+[DPU][PERF] decode (MegaCycle,  %) 
+6099.46      99.97 
+[DPU][PERF] hashfunc (MegaCycle,  %) 
+928.55      15.22 
+[DPU][PERF] penality (MegaCycle,  %) 
+38.09       0.62 
+[DPU][PERF] hypcompute_first_section (MegaCycle,  %) 
+481.58       7.89 
+[DPU][PERF] hypload (MegaCycle,  %) 
+94.03       1.54 
+[DPU][PERF] push (MegaCycle,  %) 
+679.90      11.14 
+[DPU][PERF] hypcompute (MegaCycle,  %) 
+4585.76      75.16 
+[DPU][PERF] IO (Eff %) 
+0.17 
+[DPU][PERF] pop (Eff %) 
+0.91 
+[DPU][PERF] decode (Eff %) 
+0.92 
+[DPU][PERF] hashfunc (Eff %) 
+0.93 
+[DPU][PERF] penality (Eff %) 
+0.93 
+[DPU][PERF] hypcompute_first_section (Eff %) 
+0.93 
+[DPU][PERF] hypload (Eff %) 
+0.93 
+[DPU][PERF] push (Eff %) 
+0.93  
+[DPU][PERF] hypcompute (Eff %) 
+0.93 
+[DPU][PERF] hypcompute (Inst ) 
+76416775088.00 
+[DPU][PERF] hypcompute (Cyc ) 
+82543746592.00 
+[DPU][BW] W (Gbytes) (heap) 
+5.92  
+[DPU][BW] R (Gbytes) (heap)  
+12.51 
+[DPU][BW] W (Gbytes) (core func) 
+6.78 
+[DPU][BW] R (Gbytes) (core func) 
+9.07 
+[DPU][BW] W (Gbytes) (global) 
+12.70  
+[DPU][BW] R (Gbytes)(global) 
+21.58  
+[DPU][BW] W BW (Gbytes/sec) (heap) 
+0.34  
+[DPU][BW] R BW (Gbytes/sec) (heap)  
+0.72 
+[DPU][BW] W BW (Gbytes/sec) (core func) 
+0.39 
+[DPU][BW] R BW (Gbytes/sec) (core func) 
+0.52 
+[DPU][BW] W BW (Gbytes/sec) (global) 
+0.73  
+[DPU][BW] R BW (Gbytes/sec) (global) 
+1.24  
+[DPU][BW] W (bytes/cycl) BW (heap push) 
+0.0005  
+[DPU][BW] W (bytes/cycl) BW (heap pop) 
+0.0014  
+(dpu decoder) [NR_DPUS=1][NR_TASKLETS=18][NR_STRANDS=510][PERF_TYPE=0]
+host res (real packet) => [[  0   0  76 ...,  73   0   2]
+ [  0   1  83 ..., 115   0   0]
+ [  0   2  32 ..., 114   0   0]
+ ..., 
+ [  0 252  29 ..., 103   0   0]
+ [  0 253   9 ..., 112   0   0]
+ [  0 254 225 ..., 181   0   0]]
+dpu  res (real packet) => [[  0   0  76 ...,  73   0   2]
+ [  0   1  83 ..., 115   0   0]
+ [  0   2  32 ..., 114   0   0]
+ ..., 
+ [  0 252  29 ..., 103   0   0]
+ [  0 253   9 ..., 112   0   0]
+ [  0 254 225 ..., 181   0   0]]
+[HEDGES][DECODER][PACKET][NSTRANDS (WITH FAKE FOR PERF)= 510 ] 0
+
