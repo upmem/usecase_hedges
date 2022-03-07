@@ -4,7 +4,7 @@ DNA storage error-correcting code pipeline (inner HEDGES, outer RS/LDPC) running
 # docker fetch
 ```
 # login to ghcr.io
-docker login -u dgerinmem -p [GITHUB GHCR TOKEN] ghcr.io
+docker login -u [GITHUB LOGIN] -p [GITHUB GHCR TOKEN] ghcr.io
 # docker pull HEDGES image
 make build_docker
 ```
