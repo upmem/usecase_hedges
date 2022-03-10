@@ -1,5 +1,5 @@
-# dpu_dnastorage
-DNA storage error-correcting code pipeline (inner HEDGES, outer RS/LDPC) running on DPU
+# usecase_dnastorage
+DNA storage error-correcting code pipeline (inner HEDGES, outer RS/LDPC) running on UPMEM PIMM DPU
 
 # docker fetch
 ```
