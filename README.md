@@ -2,7 +2,7 @@
 DNA storage error-correcting code pipeline (inner HEDGES, outer RS/LDPC) running on UPMEM PIMM DPU.
 
 
-# performances result (measured with 1 DPU with somme estimated multi DPU perfs)
+# performances summary (measured with 1 DPU with somme estimated multi DPU perfs)
 
 
 | CR    | time (sec/DPU)  | decoding throughput (seq/sec/DPU) | DPU tasklet balancing (%) | DPU pipeline efficiency (%) |
