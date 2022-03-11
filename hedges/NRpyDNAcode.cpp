@@ -1058,7 +1058,8 @@ MatUchar decode_DPU_(MatUchar &codetext,
 					 uint64_t &nbyte_written_heap,
 					 uint64_t &nbyte_loaded_heap,
 					 uint64_t &nbyte_written,
-					 uint64_t &nbyte_loaded)
+					 uint64_t &nbyte_loaded, 
+					 uint64_t &nb_cycles_total)
 {
 	struct dpu_set_t dpu;
 
@@ -1150,6 +1151,8 @@ MatUchar decode_DPU_(MatUchar &codetext,
 									 NR_TASKLETS * sizeof(uint64_t)));
 			DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_written", 0, &nb_bytes_written,
 									 NR_TASKLETS * sizeof(uint64_t)));
+			DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_total", 0, &nb_cycles_total,
+									 sizeof(uint64_t)));
 		}
 		for (uint64_t i = 0; i < NR_TASKLETS; i++)
 		{
@@ -1257,10 +1260,12 @@ static PyObject *decode_DPU(PyObject *self, PyObject *pyargs)
 	uint64_t hypload_cycles[NR_TASKLETS];
 	VecDoub  hypload_cycles_( NR_TASKLETS);
 	double host_time;
+	double nb_cycles_total_;
 	uint64_t nbyte_written_heap = 0;
 	uint64_t nbyte_loaded_heap = 0;
 	uint64_t nbyte_written = 0;
 	uint64_t nbyte_loaded = 0;
+	uint64_t nb_cycles_total = 0;
 
 
 	MatUchar plaintext = decode_DPU_(codetext,
@@ -1282,7 +1287,8 @@ static PyObject *decode_DPU(PyObject *self, PyObject *pyargs)
 									 nbyte_written_heap,
 									 nbyte_loaded_heap,
 									 nbyte_written,
-									 nbyte_loaded);
+									 nbyte_loaded,
+									 nb_cycles_total);
 
 	assert(NR_TASKLETS == nr_tasklets);
 	for (uint64_t i = 0; i< NR_TASKLETS ;i++)
@@ -1298,6 +1304,7 @@ static PyObject *decode_DPU(PyObject *self, PyObject *pyargs)
 		hypcompute_first_section_cycles_[i] =(Doub)  hypcompute_first_section_cycles[i]+    0.1;
 		hypload_cycles_[i] = (Doub) hypload_cycles[i]+    0.1;
 	}
+	 nb_cycles_total_ = (Doub)nb_cycles_total + 0.1;
 		
 	return NRpyTuple(
 		NRpyObject(errcode),
@@ -1323,6 +1330,7 @@ static PyObject *decode_DPU(PyObject *self, PyObject *pyargs)
 		NRpyObject((Ullong)(nbyte_loaded_heap)),
 		NRpyObject((Ullong)(nbyte_written)),
 		NRpyObject((Ullong)(nbyte_loaded)),
+		NRpyObject(nb_cycles_total_),
 		NULL);
 }
 

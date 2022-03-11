@@ -19,7 +19,7 @@ set(BUDDY_ALLOCATOR_SIZE_BYTE 8000)
 set(ENABLE_HEAP_HOST_DEBUGGING 0)
 
 # enable (compile time) printf() from dpus
-set(ENABLE_DPU_PRINT 0)
+set(ENABLE_DPU_PRINT 1)
 
 # enable (compile time) DPU perf measurement
 set(MESURE_PERF 1)

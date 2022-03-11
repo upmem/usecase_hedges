@@ -28,7 +28,7 @@ coderates = array([NaN, 0.75, 0.6, 0.5, 1./3., 0.25, 1./6.]
                   )  # table of coderates 1..6
 
 # user-settable parameters for this test
-coderatecode = 3  # test this coderate in coderaetes table above
+coderatecode = 4  # test this coderate in coderaetes table above
 npackets = 1  # number of packets (of 255 strands each) to generate and test)
 totstrandlen = 300  # total length of DNA strand
 
@@ -215,7 +215,8 @@ def dnatomess_dpu(dnapacket, decoded_reference, cpu_time):
         _nbyte_written_heap,
         _nbyte_loaded_heap,
         _nbyte_written,
-        _nbyte_loaded) = code.decode_DPU(
+        _nbyte_loaded,
+        _nb_cycles_total) = code.decode_DPU(
         dnapacket[0:maxpacket, :], 8*bytesperstrand, 2 if dpu_profiling else 0)
     code.stop_dpus()
     if dpu_profiling:
@@ -238,7 +239,8 @@ def dnatomess_dpu(dnapacket, decoded_reference, cpu_time):
             nbyte_written_heap,
             nbyte_loaded_heap,
             nbyte_written,
-            nbyte_loaded) = code.decode_DPU(
+            nbyte_loaded,
+            nb_cycles_total) = code.decode_DPU(
             dnapacket[0:maxpacket, :], 8*bytesperstrand, 1)
         code.stop_dpus()
 
@@ -263,12 +265,19 @@ def dnatomess_dpu(dnapacket, decoded_reference, cpu_time):
             _hypload_cycles, hypload_cycles)
 
         dpu_time = 1.0 * totalcm / clocks_per_sec
+
+        eff_total_2 = _nb_cycles_total / nb_cycles_total
+        dpu_time_2 = 1.0 * nb_cycles_total / clocks_per_sec
+
         print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Tasklet Balancing % ", dpu_time / host_time
         print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Host Time\n{:.2f} secs".format(host_time)
         print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu Time\n{:.2f} secs".format(dpu_time)
         print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu MegaCycles\n{:.2f}".format(totalcm * 1e-6)
+        print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu MegaCycles 2\n{:.2f}".format(nb_cycles_total * 1e-6)
         print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu MegaInst\n{:.2f}".format(totalim * 1e-6)
         print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu Pipeline Eff % \n{:.2f}".format(totalem)
+        print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu Pipeline Eff 2 % \n{:.2f}".format(eff_total_2)
+        print "[HEDGES][DECODER][DPU][PERF][SUMMARY] Dpu Time 2 \n{:.2f}".format(dpu_time_2)
 
         print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) IO (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(iocm * 1e-6, ioc, 100 * iocm / totalcm)
         print "[HEDGES][DECODER][DPU][PERF][CYCLES] (func) push (MegaCycle,  %) \n{:.2f} {:>10.2f} ".format(pushcm * 1e-6, 100 * pushcm / totalcm)
@@ -290,26 +299,26 @@ def dnatomess_dpu(dnapacket, decoded_reference, cpu_time):
         print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hypload (Eff %) \n{:.2f} ".format(hyploadem)
         print "[HEDGES][DECODER][DPU][PERF][PIPELINE_EFF] (func) hypcompute (Eff %) \n{:.2f} ".format(hypcomputeem)
 
-        nbyte_written_heap = 1e-6 * nbyte_written_heap / NR_TASKLETS
-        nbyte_loaded_heap = 1e-6 * nbyte_loaded_heap / NR_TASKLETS
-        nbyte_written = 1e-6 * nbyte_written / NR_TASKLETS
-        nbyte_loaded = 1e-6 * nbyte_loaded / NR_TASKLETS
+        nbyte_written_heap = 1e-6 * nbyte_written_heap
+        nbyte_loaded_heap = 1e-6 * nbyte_loaded_heap
+        nbyte_written = 1e-6 * nbyte_written
+        nbyte_loaded = 1e-6 * nbyte_loaded
         w_global = nbyte_written_heap + nbyte_written
         r_global = nbyte_loaded_heap + nbyte_loaded
 
-        print "[DPU][TASKLET BANDWIDTH] W (Gbytes) (global) \n{:.2f}  ".format(w_global)
-        print "[DPU][TASKLET BANDWIDTH] R (Gbytes) (global) \n{:.2f}  ".format(r_global)
-        print "[DPU][TASKLET BANDWIDTH] W (Gbytes) (heap) \n{:.2f}  ".format(nbyte_written_heap)
-        print "[DPU][TASKLET BANDWIDTH] R (Gbytes) (heap)  \n{:.2f} ".format(nbyte_loaded_heap)
-        print "[DPU][TASKLET BANDWIDTH] W (Gbytes) (core func) \n{:.2f} ".format(nbyte_written)
-        print "[DPU][TASKLET BANDWIDTH] R (Gbytes) (core func) \n{:.2f} ".format(nbyte_loaded)
+        print "[DPU][TASKLET XFER ABSOLUTE] W (Mbytes) (global) \n{:.2f}  ".format(w_global)
+        print "[DPU][TASKLET XFER ABSOLUTE] R (Mbytes) (global) \n{:.2f}  ".format(r_global)
+        print "[DPU][TASKLET XFER ABSOLUTE] W (Mbytes) (heap) \n{:.2f}  ".format(nbyte_written_heap)
+        print "[DPU][TASKLET XFER ABSOLUTE] R (Mbytes) (heap)  \n{:.2f} ".format(nbyte_loaded_heap)
+        print "[DPU][TASKLET XFER ABSOLUTE] W (Mbytes) (core func) \n{:.2f} ".format(nbyte_written)
+        print "[DPU][TASKLET XFER ABSOLUTE] R (Mbytes) (core func) \n{:.2f} ".format(nbyte_loaded)
 
-        print "[DPU][TASKLET BANDWIDTH] W BW (Gbytes/sec) (global) \n{:.2f}  ".format(w_global/dpu_time)
-        print "[DPU][TASKLET BANDWIDTH] R BW (Gbytes/sec) (global) \n{:.2f}  ".format(r_global/dpu_time)
-        print "[DPU][TASKLET BANDWIDTH] W BW (Gbytes/sec) (heap) \n{:.2f}  ".format(nbyte_written_heap/dpu_time)
-        print "[DPU][TASKLET BANDWIDTH] R BW (Gbytes/sec) (heap)  \n{:.2f} ".format(nbyte_loaded_heap/dpu_time)
-        print "[DPU][TASKLET BANDWIDTH] W BW (Gbytes/sec) (core func) \n{:.2f} ".format(nbyte_written/dpu_time)
-        print "[DPU][TASKLET BANDWIDTH] R BW (Gbytes/sec) (core func) \n{:.2f} ".format(nbyte_loaded/dpu_time)
+        print "[DPU][TASKLET XFER BANDWIDTH] W (Mbytes/sec) (global) \n{:.2f}  ".format(w_global/dpu_time)
+        print "[DPU][TASKLET XFER BANDWIDTH] R (Mbytes/sec) (global) \n{:.2f}  ".format(r_global/dpu_time)
+        print "[DPU][TASKLET XFER BANDWIDTH] W (Mbytes/sec) (heap) \n{:.2f}  ".format(nbyte_written_heap/dpu_time)
+        print "[DPU][TASKLET XFER BANDWIDTH] R (Mbytes/sec) (heap)  \n{:.2f} ".format(nbyte_loaded_heap/dpu_time)
+        print "[DPU][TASKLET XFER BANDWIDTH] W (Mbytes/sec) (core func) \n{:.2f} ".format(nbyte_written/dpu_time)
+        print "[DPU][TASKLET XFER BANDWIDTH] R (Mbytes/sec) (core func) \n{:.2f} ".format(nbyte_loaded/dpu_time)
 
         dimm_server = 20.
         dpu_cpu_acc = 1.*cpu_time / host_time

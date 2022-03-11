@@ -19,6 +19,7 @@
  * @brief section performances counters
  */
 #if defined(MESURE_PERF)
+__host perfcounter_t nb_cycles_total = 0;
 __host perfcounter_t nb_cycles_hypcompute[NR_TASKLETS] = {0};
 __host perfcounter_t nb_cycles_decode[NR_TASKLETS] = {0};
 __host perfcounter_t nb_cycles_io[NR_TASKLETS] = {0};
@@ -775,10 +776,10 @@ void decode(uint32_t packet_index_)
     input_codetext__[i] = 0;
   mram_read(I.mram_addr[packet_index_], input_codetext__, codetext_aligned_size_byte);
 
-#if (MESURE_BW ==1)
-  if (perf_bw)
-    nb_bytes_loaded[me()] += codetext_aligned_size_byte;
-#endif
+// #if (MESURE_BW ==1)
+//   if (perf_bw)
+//     nb_bytes_loaded[me()] += codetext_aligned_size_byte;
+// #endif
 
   reset_hypothesis();
   heap_mining((Int)(codetext_size), nmessbit, input_codetext__);
@@ -833,6 +834,8 @@ __dma_aligned heap_ptr_type dbgPtr[200];
  */
 int main()
 {
+
+
   barrier_wait(&barrier);
   
   if (me() == 0)
@@ -996,6 +999,11 @@ int main()
   {
     total_cycles[me()] += perfcounter_get() - start_time_;
   }
+
+
+  nb_cycles_total = perfcounter_get() ;
+
+  printf("nb_cycles_total() %lu\n", perfcounter_get() );
 
   return 0;
 }
