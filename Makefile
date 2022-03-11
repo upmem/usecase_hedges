@@ -2,22 +2,7 @@
 
 PWD = $(shell pwd)
 
-# docker login -u dgerinmem -p ghp_... ghcr.io
-# docker pull ghcr.io/upmem/usecase_dnastorage/hedges/debian10:sw-20-release
-# DOCKER_IMG = ghcr.io/upmem/usecase_dnastorage/hedges/debian10:sw-20-release
 DOCKER_IMG = ghcr.io/upmem/usecase_dnastorage/hedges/ubuntu18:sw-20-release
-# FOR PERF
-# sudo mount -o remount,mode=755 /sys/kernel/debug
-# sudo mount -o remount,mode=755 /sys/kernel/debug/tracing
-# sudo chmod a+w /sys/kernel/debug/tracing/uprobe_events
-# sudo chmod a+w /sys/kernel/debug/tracing/kprobe_events
-# sudo bash -c "echo -1 > /proc/sys/kernel/perf_event_paranoid"
-# perf install at doccker boot (necessary for perf with debian based image)
-# testAppFuncProfilerWithPerfInstall:
-#   docker run --rm  -i --privileged --device=/dev/dpu_rank0    --security-opt seccomp=dpu_recipes/docker/docker_with_perf.json   -v ${PWD}:/work ${DOCKER_IMG} bash -c "git clone --depth 1 --branch \"v$(uname -r | sed 's/\([0-9]\+\.[0-9]\+\).*/\1/g')\" https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git && cd linux/tools/perf && make install && cp ./perf /usr/bin/perf  && cd /work && PYTHONPATH=/work/build  dpu-profiling functions -A -- python -u hedges_pipeline.py"
-
-# docker run --rm  -i --privileged --device=/dev/dpu_rank0    --security-opt seccomp=dpu_recipes/docker/docker_with_perf.json   -v ${PWD}:/work ghcr.io/upmem/usecase_dnastorage/hedges/ubuntu18:sw-20-release  bash -c "rm -rf linux && git clone --depth 1 --branch \"v$(uname -r | sed 's/\([0-9]\+\.[0-9]\+\).*/\1/g')\" https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git && cd linux/tools/perf && make install && cp ./perf /usr/bin/perf  && cd /work && PYTHONPATH=/work/build  dpu-profiling functions -A -- python -u hedges_pipeline.py"
-# dpu-lldb-attach-dpu 0.0.0 ./build/dpudecoder-build-dpu/dpudecoder-dpu
 
 build_docker:
 	docker pull ${DOCKER_IMG}
