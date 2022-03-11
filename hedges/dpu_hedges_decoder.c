@@ -776,10 +776,10 @@ void decode(uint32_t packet_index_)
     input_codetext__[i] = 0;
   mram_read(I.mram_addr[packet_index_], input_codetext__, codetext_aligned_size_byte);
 
-// #if (MESURE_BW ==1)
-//   if (perf_bw)
-//     nb_bytes_loaded[me()] += codetext_aligned_size_byte;
-// #endif
+#if (MESURE_BW ==1)
+  if (perf_bw)
+    nb_bytes_loaded[me()] += codetext_aligned_size_byte;
+#endif
 
   reset_hypothesis();
   heap_mining((Int)(codetext_size), nmessbit, input_codetext__);
