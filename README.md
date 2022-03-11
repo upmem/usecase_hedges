@@ -1,6 +1,16 @@
 # usecase_dnastorage
 DNA storage error-correcting code pipeline (inner HEDGES, outer RS/LDPC) running on UPMEM PIMM DPU.
 
+
+# performances result (measured with 1 DPU with somme estimated multi DPU perfs)
+
+
+| CR    | time (sec/DPU)  | decoding throughput (seq/sec/DPU) | DPU tasklet balancing (%) | DPU pipeline efficiency (%) |
+|-------|:----------------|:-----------------------------:|:-----------------------------:|:---------------------------:|
+| 0.5   |  36.12          |      14.12                    |         90                    |           69               |
+| 0.33  |  10.0           |      50.51                    |         86                    |           62               |
+| 0.25  |  5.31           |      95.92                    |         98                    |           69               |
+
 # docker fetch
 
 For convenience, we provide a packaged docker image available on ghrc.io.
