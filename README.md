@@ -1,6 +1,16 @@
 # usecase_dnastorage
 DNA storage error-correcting code pipeline (inner HEDGES, outer RS/LDPC) running on UPMEM PIMM DPU.
 
+```
+     _______________________________________________________________________________
+    |   ___________      _______________
+    |  | synthetic |    | outer encoder |
+    |  | data      |--->| (R.S)         |  
+    |  |___________|    |_______________|
+                                   
+
+
+```
 
 # performances summary
 (measured with 1 DPU with somme estimated multi DPU perfs)
