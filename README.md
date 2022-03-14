@@ -29,11 +29,11 @@ The current implementation support only one DPU as it consists of a POC.
 (measured with 1 DPU with some estimated multi DPU perfs)
 
 
-| CR    | time (sec/DPU)  | decoding throughput (seq/sec/DPU) | DPU pipeline efficiency (%) |
-|-------|:----------------|:-----------------------------:|:-------------------------------:|
-| 0.5   |  36.12          |      14.12                    |               69                |
-| 0.33  |  10.0           |      50.51                    |               62                |
-| 0.25  |  5.31           |      95.92                    |               69                |
+| CR    |  srate    |    drate       |  irate        | strands/DPU run      | time (sec/DPU)  | decoding throughput (seq/sec/DPU) | DPU pipeline efficiency (%) |
+|-------|:----------|:---------------|:--------------|:---------------------|:----------------|:-----------------------------:|:-------------------------------:|
+| 0.5   |  0.03105  |   0.00945      |     0.00585   |  510                 |  36.12          |      14.12                    |               69                |
+| 0.33  |  0.03105  |   0.00945      |     0.00585   |  510                 |  10.0           |      50.51                    |               62                |
+| 0.25  |  0.03105  |   0.00945      |     0.00585   |  510                 |  5.31           |      95.92                    |               69                |
 
 # docker fetch
 
