@@ -4,7 +4,8 @@ DNA storage error-correcting code pipeline (inner HEDGES, outer RS/LDPC) running
 It is based on (2004821117, https://www.pnas.org/doi/full/10.1073/pnas.2004821117), the original HEDGES Research
 Article. (Williamm H.Press, John A.Hawkins and all, Texas University, June 6, 2020).
 
-```  ____________________________________________________________
+```
+     ____________________________________________________________
     |   ___________      _______________      _______________    |
     |  | synthetic |    | outer encoder |    | inner encoder |   |
     |  | data      |--->| (R.S)         |--->| (HEDGES)      |   |
@@ -30,9 +31,9 @@ The current implementation support only one DPU as it consists of a POC.
 
 | CR    | time (sec/DPU)  | decoding throughput (seq/sec/DPU) | DPU tasklet balancing (%) | DPU pipeline efficiency (%) |
 |-------|:----------------|:-----------------------------:|:-----------------------------:|:---------------------------:|
-| 0.5   |  36.12          |      14.12                    |         90                    |           69               |
-| 0.33  |  10.0           |      50.51                    |         86                    |           62               |
-| 0.25  |  5.31           |      95.92                    |         98                    |           69               |
+| 0.5   |  36.12          |      14.12                    |         90                    |           69                |
+| 0.33  |  10.0           |      50.51                    |         86                    |           62                |
+| 0.25  |  5.31           |      95.92                    |         98                    |           69                |
 
 # docker fetch
 
