@@ -26,7 +26,7 @@ The current implementation support only one DPU as it consists of a POC.
 
 
 # performances summary
-(measured with 1 DPU with somme estimated multi DPU perfs)
+(measured with 1 DPU with some estimated multi DPU perfs)
 
 
 | CR    | time (sec/DPU)  | decoding throughput (seq/sec/DPU) | DPU pipeline efficiency (%) |
