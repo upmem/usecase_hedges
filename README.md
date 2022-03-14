@@ -41,10 +41,12 @@ For convenience, we provide a packaged docker image available on ghrc.io.
 This image is compatible with UPMEM PIMM cloud server environement.
 No extra packages are required to build and run the project on DPU.
 
-```
 # login to ghcr.io
+```
 docker login -u [GITHUB LOGIN] -p [GITHUB GHCR TOKEN] ghcr.io
+```
 # docker pull HEDGES image
+```
 make build_docker
 ```
 
