@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(hedges C CXX)
-include(dpu_recipes/dpu.cmake)
+include(dpu.cmake)
 
 # number of DPU (WARNING : NRpyDNACode support only one DPU in the current state
 set(NR_DPUS 1)
@@ -67,7 +67,7 @@ add_dpu_project(
  	""
  	""
  	"hedges/dpu_hedges_decoder.c;"
- 	"dpu_recipes/heap;.;hedges/"
+ 	"heap;.;hedges/"
  	""
  	${NR_TASKLETS}
  	${NR_DPUS}
