@@ -378,6 +378,8 @@ def dnatomess_dpu(dnapacket, decoded_reference, cpu_time):
              '{:.3f}'.format(server_cpu_acc * (Wcpu/Wdimm))],
             ['dpu decoding throughput (seq/sec/DPU)', '{:.3f}'.format(
                 dpu_decoding_throughput)],
+            ['(estimated) dpu decoding throughput (seq/sec/2560 DPUs)', '{:.3f}'.format(
+                2560 * dpu_decoding_throughput)],
         ]
 
         if test_dpu_statistics:
