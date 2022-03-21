@@ -37,22 +37,6 @@ The current implementation support only one DPU as it consists of a POC.
 | 0.33  |  0.03105  |   0.00945      |     0.00585   |  510                 |  8.31           |      61.4                         |     157,092                       |               62                |
 | 0.25  |  0.03105  |   0.00945      |     0.00585   |  510                 |  4.37           |      116.6                        |     298,569                       |               69                |
 
-
-# docker fetch
-
-For convenience, we provide a packaged docker image available on ghrc.io.
-This image is compatible with UPMEM PIMM cloud server environement.
-No extra packages are required to build and run the project on DPU.
-
-login to ghcr.io
-```
-docker login -u [GITHUB LOGIN] -p [GITHUB GHCR TOKEN] ghcr.io
-```
-docker pull HEDGES image
-```
-make build_docker
-```
-
 # usage
 
 ## build project
