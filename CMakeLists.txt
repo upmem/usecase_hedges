@@ -97,7 +97,7 @@ endif ()
 include(${UPMEM_HOME}/share/upmem/cmake/include/host/DpuHost.cmake)
 get_filename_component(HEDGES ${CMAKE_CURRENT_SOURCE_DIR}/hedges ABSOLUTE)
 get_filename_component(SCHIFRA ${CMAKE_CURRENT_SOURCE_DIR}/hedges/schifra ABSOLUTE)
-get_filename_component(NUMPY_1_13_INCLUDE /usr/local/lib/python2.7/dist-packages/numpy-1.13.3-py2.7-linux-x86_64.egg/numpy/core/include/  ABSOLUTE)
+get_filename_component(NUMPY_1_13_INCLUDE  $ENV{HOME}/.local/lib/python2.7/site-packages/numpy/core/include  ABSOLUTE)
 get_filename_component(PYTHON_27_INCLUDE /usr/local/include/python2.7/ ABSOLUTE)
 
 add_library(NRpyDNAcode SHARED hedges/NRpyDNAcode.cpp)
