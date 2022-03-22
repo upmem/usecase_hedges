@@ -30,7 +30,7 @@ coderates = array([NaN, 0.75, 0.6, 0.5, 1./3., 0.25, 1./6.]
 
 # user-settable parameters for this test
 coderatecode = 3  # test this coderate in coderaetes table above
-npackets = 20  # number of packets (of 255 strands each) to generate and test)
+npackets = 400  # number of packets (of 255 strands each) to generate and test)
 totstrandlen = 200  # total length of DNA strand
 
 strandIDbytes = 2  # ID bytes each strand for packet and sequence number
@@ -601,14 +601,15 @@ for ipacket in range(npackets):
         messcheck_ = extractplaintext(cpacket_)
 
         badbytes_ = count_nonzero(messplain-messcheck_)
+        tot_bytes_ = size(messcheck_)
 
         # print summary line
         Totalbads_ += array([baddecodes_dpu, erasures_dpu, tot_detect_, max_detect_,
-                             tot_uncorrect_, max_uncorrect_, toterrcodes_, badbytes_])
+                             tot_bytes_, tot_uncorrect_, max_uncorrect_, toterrcodes_, badbytes_])
         print("[DPU] packet %3d: (bad Decode : %3d, reasures : %3d, tot_detect :\
-%3d,     max_detect : %3d) ( tot_uncorrect : %3d, max_uncorrect : \
+%3d,     max_detect : %3d) ( tot_bytes %3d, tot_uncorrect : %3d, max_uncorrect : \
 %3d,     totercodes : %3d, badbytes : %3d)" % (ipacket,
-                                               baddecodes_dpu, erasures_dpu, tot_detect_, max_detect_, tot_uncorrect_,
+                                               baddecodes_dpu, erasures_dpu, tot_detect_, max_detect_, tot_bytes_, tot_uncorrect_,
                                                max_uncorrect_, toterrcodes_, badbytes_)),
 
         print("[DPU] packet OK" if badbytes_ == 0 else "packet NOT ok")
