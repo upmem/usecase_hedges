@@ -38,7 +38,7 @@ strandrunoutbytes = 2  # confirming bytes end of each strand (see paper)
 
 dpu_fake_packet_mul_factor = 2
 maxpacket = 1000
-hlimit = 90000  # maximum size of decode heap, see pape
+hlimit = 500000  # maximum size of decode heap, see pape
 leftprimer = "TCGAAGTCAGCGTGTATTGTATG"
 # for direct right appending (no revcomp)
 rightprimer = "TAGTGAGTGCGATTAAGCGTGTT"
