@@ -28,7 +28,7 @@ coderates = array([NaN, 0.75, 0.6, 0.5, 1./3., 0.25, 1./6.]
                   )  # table of coderates 1..6
 
 # user-settable parameters for this test
-coderatecode = 3  # test this coderate in coderaetes table above
+coderatecode = 5  # test this coderate in coderaetes table above
 npackets = 1  # number of packets (of 255 strands each) to generate and test)
 totstrandlen = 300  # total length of DNA strand
 

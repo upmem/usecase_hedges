@@ -26,6 +26,15 @@ The codebase relative to 2004821117 is (https://github.com/whpress/hedges).
 
 The current implementation support only one DPU as it consists of a POC.
 
+# install dependencies (numpy1.13 + python2.7)
+
+HEDGES project is built on nr3python library which depends
+on numpy1.13 and python2.7.
+
+```
+./install.sh
+```
+
 
 # performances summary
 (measured with 1 DPU with some estimated PIMM server with 2560 DPUs perfs)
