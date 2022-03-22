@@ -1006,6 +1006,7 @@ static PyObject *releaseall(PyObject *self, PyObject *pyargs)
 uint64_t maxheaphost = 0;
 void reg_max_heap()
 {
+	// std::cerr << "nfinal " <<  nfinal << "\n";
 	if (nfinal > maxheaphost)
 		maxheaphost = nfinal;
 }
