@@ -20,9 +20,9 @@ import csv
 
 
 test_dpu_encoder = 0
-test_dpu_decoder = 0
+test_dpu_decoder = 1
 test_dpu_statistics = 0
-dpu_profiling = 0
+dpu_profiling = 1
 
 
 coderates = array([NaN, 0.75, 0.6, 0.5, 1./3., 0.25, 1./6.]
@@ -30,7 +30,7 @@ coderates = array([NaN, 0.75, 0.6, 0.5, 1./3., 0.25, 1./6.]
 
 # user-settable parameters for this test
 coderatecode = 3  # test this coderate in coderaetes table above
-npackets = 400  # number of packets (of 255 strands each) to generate and test)
+npackets = 1  # number of packets (of 255 strands each) to generate and test)
 totstrandlen = 200  # total length of DNA strand
 
 strandIDbytes = 2  # ID bytes each strand for packet and sequence number
@@ -38,7 +38,7 @@ strandrunoutbytes = 2  # confirming bytes end of each strand (see paper)
 
 dpu_fake_packet_mul_factor = 2
 maxpacket = 1000
-hlimit = 500000  # maximum size of decode heap, see pape
+hlimit = 45000  # maximum size of decode heap, see pape
 leftprimer = "TCGAAGTCAGCGTGTATTGTATG"
 # for direct right appending (no revcomp)
 rightprimer = "TAGTGAGTGCGATTAAGCGTGTT"
@@ -359,6 +359,8 @@ def dnatomess_dpu(dnapacket, decoded_reference, cpu_time):
                  'heap_hasging', 'penality', 'hypload', 'hypcompute']
         dperf = [
             ['host (s)', host_time],
+            ['NR_TASKLETS ', NR_TASKLETS],
+            ['HLIMIT', hlimit],
             ['dpu Tasklet Balancing %', dpu_time/host_time],
             ['dpu % total', 1, iocm/totalcm, pushcm/totalcm, popcm / totalcm, decodecm/totalcm, hashfuncm/totalcm,
                 penalitycm/totalcm, hyploadcm/totalcm, hypcomputecm/totalcm],
