@@ -12,11 +12,6 @@
 
 typedef int32_t heap_score_type;
 typedef uint32_t heap_ptr_type;
-#define ptr_mask 0x00000000FFFFFFFFl
-#define score_mask 0x00000000FFFFFFFFl
-
-#define HEAP_SCORE_SIZE 4
-#define HEAP_PTR_SIZE 4
 
 /** 8 byte alignement **/
 #define MEMORY_ALIGNMENT_BYTE_LOG2 3
@@ -27,13 +22,7 @@ typedef uint32_t heap_ptr_type;
 #define XFER_MEM_ALIGN_LOWER(expr)                                             \
   ((((expr) >> MEMORY_ALIGNMENT_BYTE_LOG2)) << MEMORY_ALIGNMENT_BYTE_LOG2)
 
-#define HEAP_UNSIGNED_MAXVAL 4294967296
-#define HEAP_SCORE_MAXVAL 2147483647
-#define HEAP_SCORE_MINVAL -2147483648
-
 #ifdef DPU_ENV
-__dma_aligned heap_score_type score_max_val = HEAP_SCORE_MAXVAL;
-__dma_aligned heap_score_type score_min_val = HEAP_SCORE_MINVAL;
 
 #if defined(MESURE_PERF) || defined(MESURE_BW)
 #include <perfcounter.h>
@@ -51,6 +40,15 @@ __host perfcounter_t nb_cycles_push[NR_TASKLETS] = {0};
 __host uint64_t nb_bytes_loaded_heap[NR_TASKLETS] = {0};
 __host uint64_t nb_bytes_written_heap[NR_TASKLETS] = {0};
 #endif
+
+/**
+ * @brief Fixed Point Quantification macro  double -> fp
+ */
+#define HEAP_SCORE_MAXVAL_FLOAT 32767
+#define FLOAT_TO_FP(i)                                                         \
+  (heap_score_type)((float)(i) * ((float)(1 << DECODER_QUANT_FRAC_BITS)))
+#define FP_TO_FLOAT(i)                                                         \
+  (float)((float)(i) / ((float)(1 << DECODER_QUANT_FRAC_BITS)))
 
 typedef struct item {
   heap_score_type score;
@@ -163,7 +161,7 @@ void heap_push(heap *h, __dma_aligned item *it, bool perf) {
       break;
 
     /** load parent node score **/
-    parent_pos = (cur_pos-1) >> 1;
+    parent_pos = (cur_pos - 1) >> 1;
     heap_read(h, parent_pos, &parent_it);
     __dma_aligned item ro;
     heap_read(h, 0, &ro);
@@ -204,6 +202,9 @@ bool heap_pop(heap *h, __dma_aligned item *it, bool perf) {
   __dma_aligned item right_item;
   heap_score_type min_score;
 
+  __dma_aligned item maxitem =
+      (item){.score = FLOAT_TO_FP(HEAP_SCORE_MAXVAL_FLOAT), 0};
+
   cur_pos = 0;
 
   if (h->heap_pos[me()] == 0)
@@ -224,7 +225,6 @@ bool heap_pop(heap *h, __dma_aligned item *it, bool perf) {
     /**
      * assign the end nodes (score and ptr) to specific values
      **/
-    item maxitem = (item){.score = score_max_val, 0};
     heap_write(h, end_pos, &maxitem);
     /** NOTE : Not sure this step is necessary (only asign score value to
      * bigvalue should be necessary) heap_write_ptr(end_pos, &bigval);

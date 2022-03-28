@@ -829,7 +829,7 @@ void init_heap_and_stack()
 	hypostack[0].init_root();
 	nhypo = 1;
 	heap.rewind();
-	heap.push(1.e10, 0);
+	heap.push(FP_TO_FLOAT(HEAP_SCORE_MAX_VAL_FLOAT), 0);
 }
 
 void heap_mining(Int limit, Int nmessbits)
@@ -862,7 +862,7 @@ void heap_mining(Int limit, Int nmessbits)
 		if (nmessbits > 0 && seq >= seqmax - 1)
 			break; // ditto when no. of message bits specified
 
-		if (nhypo > HLIMIT)
+		if (nhypo +12 > HLIMIT)
 		{
 			errcode = 2;
 			nfinal = qqmax;

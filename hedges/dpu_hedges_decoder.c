@@ -1,19 +1,18 @@
+#include <alloc.h>
+#include <assert.h>
 #include <barrier.h>
 #include <defs.h>
 #include <mram.h>
 #include <mutex.h>
+#include <perfcounter.h>
+#include <profiling.h>
+#include <seqread.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <alloc.h>
-#include <assert.h>
-#include <seqread.h>
-#include <common.h>
-#include <../hedges/ran.h>
 #include <xferItf.h>
-#include <profiling.h>
+#include <common.h>
 #include "heap_1_1.h"
-#include <perfcounter.h>
-
+#include <ran.h>
 
 /**
  * @brief section performances counters
@@ -39,10 +38,10 @@ __host uint64_t nb_bytes_written[NR_TASKLETS] = {0};
 #endif
 
 /**
- * @brief representation of HEDGES decoding hypothesis 
- * 
+ * @brief representation of HEDGES decoding hypothesis
+ *
  */
-typedef struct hypothesis{
+typedef struct hypothesis {
   /** next char in message */
   Int offset;
   /** my position in the decoded message (0,1,...) */
@@ -63,18 +62,17 @@ __dma_aligned GF4reg acgtacgt;
 
 /**
  * @brief initialize hypothesis node
- * 
- * @param h 
- * @return * cache* 
+ *
+ * @param h
+ * @return * cache*
  */
-void hypothesis_init_root(hypothesis *h)
-{
+void hypothesis_init_root(hypothesis *h) {
   h->predi = -1;
   h->offset = -1;
   h->seq = -1;
   h->messagebit = 0;
   h->prevbits = 0;
-  h->score = 0.;
+  h->score = (heap_score_type)(0);
   h->salt = 0;
   h->newsalt = 0;
   h->prevcode = acgtacgt;
@@ -83,13 +81,16 @@ void hypothesis_init_root(hypothesis *h)
 /**
  * @brief tasklet wise stack of hypothesis
  */
-__mram_noinit uint8_t hypothesis_stack[NR_TASKLETS][XFER_MEM_ALIGN(sizeof(hypothesis) * HEAP_MAX_ITEM)];
+__mram_noinit uint8_t hypothesis_stack[NR_TASKLETS][XFER_MEM_ALIGN(
+    sizeof(hypothesis) * HEAP_MAX_ITEM)];
 
 /**
  * @brief tasklet wise heao of referenced hypothesis
  */
 __dma_aligned heap hypothesis_heap;
-__mram_noinit uint8_t hypothesis_heap_buffer[NR_TASKLETS * XFER_MEM_ALIGN(sizeof(item) * HEAP_MAX_ITEM)];
+__mram_noinit uint8_t
+    hypothesis_heap_buffer[NR_TASKLETS *
+                           XFER_MEM_ALIGN(sizeof(item) * HEAP_MAX_ITEM)];
 __dma_aligned uint64_t heap_pos[NR_TASKLETS];
 __dma_aligned uint64_t heap_pos_final[NR_TASKLETS];
 __dma_aligned uint64_t nhypo[NR_TASKLETS];
@@ -101,12 +102,10 @@ __host uint64_t xferOffset;
 /** host accessible NR_TASKLETS value **/
 __host uint64_t nr_tasklets = NR_TASKLETS;
 
-
 /**
  * @brief HOST/DPU xferItf MRAM buffer
  */
 __mram_noinit uint8_t xferitf_buffer[1 << HOSTDPU_XFER_BUFFER_SIZE_LOG2_BYTE];
-
 
 __host uint64_t perf_type;
 __host uint64_t perf_bw;
@@ -131,15 +130,11 @@ heap_score_type insertion_;
 heap_score_type dither_;
 
 /**
- * @brief Fixed Point Quantification macro  double -> fp
- */
-#define DOUBLE_TO_FP(i) (heap_score_type)((double)(i) * ((double)(1 << DECODER_QUANT_FRAC_BITS)))
-
-/**
  * @brief HEDGES decoder parameters
  */
 
-/** Greedy Exhaustive Search Maximal number of hypothesis for each strand to decode */
+/** Greedy Exhaustive Search Maximal number of hypothesis for each strand to
+ * decode */
 __host Int HLIMIT;
 __host Int NSTAK;
 
@@ -166,7 +161,7 @@ __dma_aligned VecInt pattarr;
 
 /**
  *  IO Tensors : Tensor class provides  API for HOST/DPU exchanges
- *               of tensors. 
+ *               of tensors.
  *               I provides a batch of strands to decode from the HOST
  *               O provides the corresponding decoded sequence of bits
  */
@@ -179,15 +174,13 @@ Tensor2d O_scores, O_ptr;
 
 /**
  * @brief returns the number of allowed ACGTs and puts them in dnac_ok
- * 
- * @param dnac_ok 
- * @param prev 
- * @return returns 
+ *
+ * @param dnac_ok
+ * @param prev
+ * @return returns
  */
-Int dnacallowed(Uchar *dnac_ok, GF4reg prev)
-{
-  if (DNAWINDOW <= 0)
-  {
+Int dnacallowed(Uchar *dnac_ok, GF4reg prev) {
+  if (DNAWINDOW <= 0) {
     dnac_ok[0] = 0;
     dnac_ok[1] = 1;
     dnac_ok[2] = 2;
@@ -199,71 +192,58 @@ Int dnacallowed(Uchar *dnac_ok, GF4reg prev)
   Ullong reg;
   // get GCcount
   reg = prev & dnaoldmask;
-  reg = (reg ^ (reg >> 1)) & 0x5555555555555555ull; // makes ones for GC, zeros for AT
+  reg = (reg ^ (reg >> 1)) &
+        0x5555555555555555ull; // makes ones for GC, zeros for AT
   // popcount inline:
   reg -= ((reg >> 1) & 0x5555555555555555ull);
   reg = (reg & 0x3333333333333333ull) + (reg >> 2 & 0x3333333333333333ull);
-  gccount = ((reg + (reg >> 4)) & 0xf0f0f0f0f0f0f0full) * 0x101010101010101ull >> 56; // the popcount
+  gccount =
+      ((reg + (reg >> 4)) & 0xf0f0f0f0f0f0f0full) * 0x101010101010101ull >>
+      56; // the popcount
   // is there a run and, if so, of what
   reg = (prev >> 2);
-  while ((reg & 3) == last)
-  {
+  while ((reg & 3) == last) {
     ++nrun;
-    if (nrun >= MAXRUN)
-    {
+    if (nrun >= MAXRUN) {
       isrun = true;
       break;
     }
     reg >>= 2;
   }
   // the horrible logic tree:
-  if (gccount >= MAXGC)
-  {
+  if (gccount >= MAXGC) {
     ans = 2;
     dnac_ok[0] = 0; // A is ok
     dnac_ok[1] = 3; // T is ok
-    if (isrun)
-    {
-      if (last == 0)
-      {
+    if (isrun) {
+      if (last == 0) {
         ans = 1;
         dnac_ok[0] = 3; // only T ok
-      }
-      else if (last == 3)
-      {
+      } else if (last == 3) {
         ans = 1;
         dnac_ok[0] = 0; // only A ok
       }
     }
-  }
-  else if (gccount <= MINGC)
-  {
+  } else if (gccount <= MINGC) {
     ans = 2;
     dnac_ok[0] = 1; // C is ok
     dnac_ok[1] = 2; // G is ok
-    if (isrun)
-    {
-      if (last == 1)
-      {
+    if (isrun) {
+      if (last == 1) {
         ans = 1;
         dnac_ok[0] = 2; // only G ok
-      }
-      else if (last == 2)
-      {
+      } else if (last == 2) {
         ans = 1;
         dnac_ok[0] = 1; // only C ok
       }
     }
-  }
-  else
-  { // no GC constraints
+  } else { // no GC constraints
     ans = 4;
     dnac_ok[0] = 0; // A is ok
     dnac_ok[1] = 1; // C is ok
     dnac_ok[2] = 2; // G is ok
     dnac_ok[3] = 3; // T is ok
-    if (isrun)
-    {
+    if (isrun) {
       ans = 3;
       for (int i = last; i < 3; i++)
         dnac_ok[i] = dnac_ok[i + 1];
@@ -273,16 +253,15 @@ Int dnacallowed(Uchar *dnac_ok, GF4reg prev)
 }
 
 /**
- * @brief encoder/decoder hash function 
- * 
- * @param out 
- * @param bits 
- * @param seq 
- * @param salt 
- * @param mod 
+ * @brief encoder/decoder hash function
+ *
+ * @param out
+ * @param bits
+ * @param seq
+ * @param salt
+ * @param mod
  */
-void hash_dna(Int *out, Ullong bits, Int seq, Ullong salt, Int mod)
-{
+void hash_dna(Int *out, Ullong bits, Int seq, Ullong salt, Int mod) {
 #if defined(MESURE_PERF)
   perfcounter_t start_time_______;
   if (perf_type)
@@ -291,67 +270,60 @@ void hash_dna(Int *out, Ullong bits, Int seq, Ullong salt, Int mod)
 
   Ullong ret;
 
-  ranhash_int64(&ret, ((((((Ullong)(seq)&seqnomask) << NPREV) | bits) << HSALT) | salt));
+  ranhash_int64(
+      &ret, ((((((Ullong)(seq)&seqnomask) << NPREV) | bits) << HSALT) | salt));
 
   Ullong div;
   Ullong ret_;
 
-
   /* op: (% mod) with mod from 0 to 4 */
-  if (mod == 4)
-  {
+  if (mod == 4) {
     div = ret >> 2;
     ret_ = ret - (div << 2);
-  }
-  else if(mod == 2)
-  {
+  } else if (mod == 2) {
     div = ret >> 1;
     ret_ = ret - (div << 1);
-  }
-  else if (mod == 1)
-  {
+  } else if (mod == 1) {
     ret_ = ret;
-  }
-  else
-  {
+  } else {
     ret_ = ret % mod;
   }
 
   *out = (Int)(ret_);
 #if defined(MESURE_PERF)
- if (perf_type)
-   nb_cycles_hashfunc[me()] += perfcounter_get() - start_time_______ ;
+  if (perf_type)
+    nb_cycles_hashfunc[me()] += perfcounter_get() - start_time_______;
 #endif
 }
 
 /**
  * @brief  Computes the message len from vbits mapping patern.
- * @param nmb 
- * @return Int 
+ * @param nmb
+ * @return Int
  */
-Int vbitlen(Int nmb)
-{
+Int vbitlen(Int nmb) {
   Int ksize, nn = 0;
-  for (ksize = 0;; ksize++)
-  {
+  for (ksize = 0;; ksize++) {
     if (nn >= nmb)
       break;
-    assert(ksize < ENCODER_STACK_MAXSEQ_DPU_NBYTES && "vbitlen: MAXSEQ too small");
+    assert(ksize < ENCODER_STACK_MAXSEQ_DPU_NBYTES &&
+           "vbitlen: MAXSEQ too small");
     nn += pattarr[ksize];
   }
   return ksize;
 }
 
 /**
- * @brief transform decoded bit sequence info efficient packed bit sequence stored 
- * 
- * @param packed_bytes 
- * @param vbits 
- * @param nmessbits 
- * @param vbits_size 
+ * @brief transform decoded bit sequence info efficient packed bit sequence
+ * stored
+ *
+ * @param packed_bytes
+ * @param vbits
+ * @param nmessbits
+ * @param vbits_size
  */
-void packvbits(Uchar *packed_bytes, Uchar *vbits, uint64_t nmessbits, uint64_t vbits_size)
-{
+void packvbits(Uchar *packed_bytes, Uchar *vbits, uint64_t nmessbits,
+               uint64_t vbits_size) {
   Int i, j, k, k1;
   Uchar bit;
   uint64_t nn;
@@ -367,14 +339,11 @@ void packvbits(Uchar *packed_bytes, Uchar *vbits, uint64_t nmessbits, uint64_t v
   uint64_t nbytes = (nn + 7) / 8;
 
   i = j = 0;
-  for (k = 0; k < vbits_size; k++)
-  {
-    for (k1 = pattarr[k] - 1; k1 >= 0; k1--)
-    {
+  for (k = 0; k < vbits_size; k++) {
+    for (k1 = pattarr[k] - 1; k1 >= 0; k1--) {
       bit = (vbits[k] >> k1) & 1;
       packed_bytes[i] = packed_bytes[i] | (bit << (7 - j++));
-      if (j == 8)
-      {
+      if (j == 8) {
         j = 0;
         if (++i == nbytes)
           break;
@@ -387,20 +356,18 @@ void packvbits(Uchar *packed_bytes, Uchar *vbits, uint64_t nmessbits, uint64_t v
 
 xferItf xitf = XFERITF_INIT();
 
-
-
-void hypothesis_load(__dma_aligned hypothesis *cache,  uint32_t pos)
-{
-  mram_read(&(hypothesis_stack[me()][pos * sizeof(hypothesis) ]), cache, XFER_MEM_ALIGN(sizeof(hypothesis)));
+void hypothesis_load(__dma_aligned hypothesis *cache, uint32_t pos) {
+  mram_read(&(hypothesis_stack[me()][pos * sizeof(hypothesis)]), cache,
+            XFER_MEM_ALIGN(sizeof(hypothesis)));
 #ifdef MESURE_BW
   if (perf_bw)
     nb_bytes_loaded[me()] += sizeof(hypothesis);
 #endif
 }
 
-void hypothesis_store(__dma_aligned hypothesis *cache, uint32_t pos)
-{
-  mram_write(cache, &(hypothesis_stack[me()][pos * sizeof(hypothesis)]), XFER_MEM_ALIGN(sizeof(hypothesis)));
+void hypothesis_store(__dma_aligned hypothesis *cache, uint32_t pos) {
+  mram_write(cache, &(hypothesis_stack[me()][pos * sizeof(hypothesis)]),
+             XFER_MEM_ALIGN(sizeof(hypothesis)));
 #ifdef MESURE_BW
   if (perf_bw)
     nb_bytes_written[me()] += sizeof(hypothesis);
@@ -408,22 +375,21 @@ void hypothesis_store(__dma_aligned hypothesis *cache, uint32_t pos)
 }
 
 /**
- * @brief global reset of all hypothesis structures 
+ * @brief global reset of all hypothesis structures
  */
-void reset_hypothesis()
-{
+void reset_hypothesis() {
   __dma_aligned heap_ptr_type zero = 0;
   __dma_aligned hypothesis cached_h;
   __dma_aligned item cur_heap_item;
 
   hypothesis_init_root(&cached_h);
-  hypothesis_store(&cached_h,  0);
+  hypothesis_store(&cached_h, 0);
 
   /** set nhypo to 1 element */
   nhypo[me()] = 1;
   hypothesis_heap.heap_pos[me()] = 0;
 
-  cur_heap_item.score = 1000000000;
+  cur_heap_item.score = FLOAT_TO_FP(1e4);
   cur_heap_item.ptr = 0;
   heap_push(&hypothesis_heap, &cur_heap_item, perf_type);
   return;
@@ -431,25 +397,25 @@ void reset_hypothesis()
 
 /**
  * @brief create new hypothesis from parent hyporhesis
- * 
- * @param h 
- * @param pred 
- * @param mbit 
- * @param skew 
- * @param input_codetext 
- * @return Int 
+ *
+ * @param h
+ * @param pred
+ * @param mbit
+ * @param skew
+ * @param input_codetext
+ * @return Int
  */
-Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_aligned Uchar *input_codetext)
-{
+Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew,
+                          __dma_aligned Uchar *input_codetext) {
 #if defined(MESURE_PERF)
   perfcounter_t start_time;
   if (perf_type)
     start_time = perfcounter_get();
 #endif
 
-  bool discrep;
+  bool discrep = false;
   Int regout, mod;
-  heap_score_type mypenalty;
+  heap_score_type mypenalty = 0;
   Ullong mysalt;
 
 #if defined(MESURE_PERF)
@@ -460,13 +426,12 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
 
   /** load precedent hypothesis */
   __dma_aligned hypothesis hp;
-  hypothesis_load(&hp,  pred);
+  hypothesis_load(&hp, pred);
 
 #if defined(MESURE_PERF)
   if (perf_type)
     nb_cycles_hypload[me()] += perfcounter_get() - start_time__;
 #endif
-
 
 #if defined(MESURE_PERF)
   perfcounter_t start_time___;
@@ -483,21 +448,17 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
   Int nbits = pattarr[h->seq];
   h->prevbits = hp.prevbits;
   h->salt = hp.salt;
-  if (h->seq < LPRIMER)
-  {
+  if (h->seq < LPRIMER) {
     mysalt = primersalt[h->seq];
-  }
-  else if (h->seq < NSP)
-  {
+  } else if (h->seq < NSP) {
     mysalt = h->salt;
-    h->newsalt = ((hp.newsalt << 1) & saltmask) ^ h->messagebit; /** variable bits overlap, but that's ok with XOR */
-  }
-  else if (h->seq == NSP)
-  {
+    h->newsalt =
+        ((hp.newsalt << 1) & saltmask) ^
+        h->messagebit; /** variable bits overlap, but that's ok with XOR */
+  } else if (h->seq == NSP) {
     /** update salt value */
     mysalt = h->salt = hp.newsalt;
-  }
-  else
+  } else
     mysalt = h->salt;
   h->offset = hp.offset + 1 + skew;
   if (h->offset >= codetextlen_g)
@@ -509,36 +470,33 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
 
 #if defined(MESURE_PERF)
   if (perf_type)
-    nb_cycles_hypcompute_first_section[me()] += perfcounter_get() - start_time___;
+    nb_cycles_hypcompute_first_section[me()] +=
+        perfcounter_get() - start_time___;
 #endif
 
-   hash_dna(&regout, h->prevbits, h->seq, mysalt, mod);
+  hash_dna(&regout, h->prevbits, h->seq, mysalt, mod);
 
 #if defined(MESURE_PERF)
   perfcounter_t start_time_____;
   if (perf_type)
-    start_time_____  = perfcounter_get();
+    start_time_____ = perfcounter_get();
 #endif
   regout = (regout + (Uchar)(h->messagebit)) % mod;
   regout = (h->seq < LPRIMER ? regout : dnac_ok[regout]);
-  h->prevbits = ((hp.prevbits << nbits) & prevmask) | h->messagebit; // variable number
+  h->prevbits =
+      ((hp.prevbits << nbits) & prevmask) | h->messagebit; // variable number
   h->prevcode = ((h->prevcode << 2) | regout) & dnawinmask;
 
-
   /** deletion */
-  if (skew < 0)
-  {
+  if (skew < 0) {
     mypenalty = deletion_;
-  }
-  else
-  {
+  } else {
     /** the only place where a check is possible!  **/
     discrep = (regout == input_codetext[h->offset]);
     /** substitution of error free */
     if (skew == 0)
       mypenalty = (discrep ? reward_ : substitution_);
-    else
-    {
+    else {
       /** inserion */
       mypenalty = insertion_ + (discrep ? reward_ : substitution_);
     }
@@ -568,27 +526,24 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
 }
 
 /**
- * @brief Principal decoder function that perform HED(GES) Greedy Exhaustive Search algorithm
- * 
- * @param limit 
- * @param nmessbits 
- * @param input_codetext 
+ * @brief Principal decoder function that perform HED(GES) Greedy Exhaustive
+ * Search algorithm
+ *
+ * @param limit
+ * @param nmessbits
+ * @param input_codetext
  * @return
  */
-void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
-{
+void heap_mining(Int limit, Int nmessbits,
+                 __dma_aligned Uchar *input_codetext) {
   Int seq, nguess, qqmax = -1, ofmax = -1, seqmax = vbitlen(nmessbits);
   Uchar mbit;
-  __dma_aligned item cur_heap_item;
+  __dma_aligned item cur_heap_item = {0, 0};
   __dma_aligned hypothesis hp;
   __dma_aligned hypothesis new_hp;
   __dma_aligned item new_heap_item;
   uint8_t errcode = 0;
-  cur_heap_item.score = 0;
-  cur_heap_item.ptr = 0;
-
-  while (true)
-  {
+  while (true) {
     /**
      * pop heap -> gives best curscore and its associated
      * hypothesis position (hypothesis stack)
@@ -598,18 +553,18 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
     assert(nemptyheap && "pop empty heap");
 
     /** load hypothesis from stack */
-    hypothesis_load(&hp,  cur_heap_item.ptr);
+    hypothesis_load(&hp, cur_heap_item.ptr);
 
     seq = hp.seq;
-    assert(seq < ENCODER_STACK_MAXSEQ_DPU_NBYTES && "heap_mining: MAXSEQ too small");
+    assert(seq < ENCODER_STACK_MAXSEQ_DPU_NBYTES &&
+           "heap_mining: MAXSEQ too small");
 
     nguess = 1 << pattarr[seq + 1]; // i.e., 1, 2, or 4
-    if (hp.offset > ofmax)
-    { // keep track of farthest gotten to
+    if (hp.offset > ofmax) {        // keep track of farthest gotten to
       ofmax = hp.offset;
       qqmax = cur_heap_item.ptr;
     }
-    if (cur_heap_item.score > 1000000000)
+    if (cur_heap_item.score > FLOAT_TO_FP(HEAP_SCORE_MAXVAL_FLOAT))
       break; // heap is empty
     if (hp.offset >= limit - 1)
       break; // errcode 0 (nominal success)
@@ -617,8 +572,7 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
       break; // ditto when no. of message bits specified
 
     // nhypo below gives a new position in the HEAP
-    if (nhypo[me()] > HLIMIT)
-    {
+    if (nhypo[me()] + 12 > HLIMIT) {
       errcode = 2;
       heap_pos_final[me()] = qqmax;
       return;
@@ -636,23 +590,21 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
 
     /** sequential computing of each kind of Hypothesis, for each bits */
     /** error free hypothesis */
-    for (mbit = 0; mbit < nguess; mbit++)
-    {
-      if (init_from_predecessor(&new_hp, cur_heap_item.ptr , mbit, 0, input_codetext))
-      {
+    for (mbit = 0; mbit < nguess; mbit++) {
+      if (init_from_predecessor(&new_hp, cur_heap_item.ptr, mbit, 0,
+                                input_codetext)) {
         new_heap_item.score = new_hp.score;
         new_heap_item.ptr = nhypo[me()];
 
         heap_push(&hypothesis_heap, &new_heap_item, perf_type);
-        hypothesis_store(&new_hp , nhypo[me()]);
+        hypothesis_store(&new_hp, nhypo[me()]);
         nhypo[me()]++;
       }
     }
     /** deletion error hypothesis */
-    for (mbit = 0; mbit < nguess; mbit++)
-    {
-      if (init_from_predecessor(&new_hp, cur_heap_item.ptr , mbit, -1, input_codetext))
-      {
+    for (mbit = 0; mbit < nguess; mbit++) {
+      if (init_from_predecessor(&new_hp, cur_heap_item.ptr, mbit, -1,
+                                input_codetext)) {
         new_heap_item.score = new_hp.score;
         new_heap_item.ptr = nhypo[me()];
 
@@ -662,10 +614,9 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
       }
     }
     /** insertion error hypothesis */
-    for (mbit = 0; mbit < nguess; mbit++)
-    {
-      if (init_from_predecessor(&new_hp, cur_heap_item.ptr , mbit, 1, input_codetext))
-      {
+    for (mbit = 0; mbit < nguess; mbit++) {
+      if (init_from_predecessor(&new_hp, cur_heap_item.ptr, mbit, 1,
+                                input_codetext)) {
         new_heap_item.score = new_hp.score;
         new_heap_item.ptr = nhypo[me()];
 
@@ -679,15 +630,14 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
 }
 
 /**
- * @brief trace the heap hypothesis back to extract the decoded bit sequence 
- * 
- * @param limit 
- * @param nmessbits 
- * @param input_codetext 
+ * @brief trace the heap hypothesis back to extract the decoded bit sequence
+ *
+ * @param limit
+ * @param nmessbits
+ * @param input_codetext
  * @return
  */
-void heap_traceback(__dma_aligned Uchar *vbits, uint64_t *traceback_size)
-{
+void heap_traceback(__dma_aligned Uchar *vbits, uint64_t *traceback_size) {
 
   Int k, kk = 0;
   Int nfinal = (Int)(heap_pos_final[me()]);
@@ -697,14 +647,16 @@ void heap_traceback(__dma_aligned Uchar *vbits, uint64_t *traceback_size)
    * Computes the length of the decoded bits sequence
    * starting from the heap final position.
    * **/
-  do
-  {
-    hypothesis_load(&h,  q);
-    if (!(h.predi > 0))
-      break;
-    kk++;
+  hypothesis_load(&h, q);
+  while (h.predi > 0) {
+#if (ENABLE_DPU_PRINT == 1)
+    // printf("CC heap %lf : %d \n",  FP_TO_DOUBLE(h.score), h.predi  );
+    // printf("CC heap %d \n",  h.predi  );
+#endif
+    ++kk;
     q = h.predi;
-  } while (h.predi > 0);
+    hypothesis_load(&h, q);
+  }
 
   *traceback_size = kk + 1;
   q = nfinal;
@@ -713,15 +665,15 @@ void heap_traceback(__dma_aligned Uchar *vbits, uint64_t *traceback_size)
    * Copy each decoded bit of decoded sequence
    * from hypothesis stack to output array (vbits)
    **/
-  do
-  {
-    hypothesis_load(&h,  q);
-    if (!(h.predi > 0))
-      break;
+  hypothesis_load(&h, q);
+  vbits[k--] = h.messagebit;
+  q = h.predi;
+  while (q > 0) {
+    hypothesis_load(&h, q);
     vbits[k] = h.messagebit;
+    --k;
     q = h.predi;
-    k--;
-  } while (h.predi > 0);
+  }
 }
 
 /** principal tasklet barrier */
@@ -731,8 +683,7 @@ uint32_t packet_index = 0;
 /** tasklet lock for packet_index RW **/
 MUTEX_INIT(packet_index_lock);
 
-void get_next_packet_index(uint32_t *index)
-{
+void get_next_packet_index(uint32_t *index) {
   mutex_lock(packet_index_lock);
   *index = packet_index;
   packet_index++;
@@ -740,15 +691,14 @@ void get_next_packet_index(uint32_t *index)
 }
 
 /**
- * @brief reset given packet index 
- * 
- * @param limit 
- * @param nmessbits 
- * @param input_codetext 
+ * @brief reset given packet index
+ *
+ * @param limit
+ * @param nmessbits
+ * @param input_codetext
  * @return
  */
-void reset_strands_packet_index()
-{
+void reset_strands_packet_index() {
   mutex_lock(packet_index_lock);
   packet_index = 0;
   mutex_unlock(packet_index_lock);
@@ -756,14 +706,13 @@ void reset_strands_packet_index()
 
 /**
  * @brief decode one input sequence (from ACGT space to binary space)
- * 
- * @param limit 
- * @param nmessbits 
- * @param input_codetext 
+ *
+ * @param limit
+ * @param nmessbits
+ * @param input_codetext
  * @return
  */
-void decode(uint32_t packet_index_)
-{
+void decode(uint32_t packet_index_) {
 
   /**
    * copy input sequence to WRAM buffer
@@ -774,18 +723,20 @@ void decode(uint32_t packet_index_)
   __dma_aligned Uchar input_codetext__[ENCODER_STACK_MAXSEQ_DPU_NBYTES];
   for (uint64_t i = 0; i < ENCODER_STACK_MAXSEQ_DPU_NBYTES; i++)
     input_codetext__[i] = 0;
-  mram_read(I.mram_addr[packet_index_], input_codetext__, codetext_aligned_size_byte);
+  mram_read(I.mram_addr[packet_index_], input_codetext__,
+            codetext_aligned_size_byte);
 
-#if (MESURE_BW ==1)
+#if (MESURE_BW == 1)
   if (perf_bw)
     nb_bytes_loaded[me()] += codetext_aligned_size_byte;
 #endif
 
   reset_hypothesis();
   heap_mining((Int)(codetext_size), nmessbit, input_codetext__);
-  
+
 #if (ENABLE_HEAP_HOST_DEBUGGING == 1)
-  printf("[HEDGES][DECODER][HEAP FINAL POS] tasklet[%u], packet [%lu] : %lu \n", (unsigned)me(), packet_index_, heap_pos_final[me()]);
+  printf("[HEDGES][DECODER][HEAP FINAL POS] tasklet[%u], packet [%u] : %lu \n",
+         (unsigned)me(), packet_index_, heap_pos_final[me()]);
 #endif
 
   /** reset vbits sequence **/
@@ -793,7 +744,6 @@ void decode(uint32_t packet_index_)
   __dma_aligned Uchar vbits[MAX_DECODED_VBITS];
   for (uint64_t i = 0; i < MAX_DECODED_VBITS; i++)
     vbits[i] = 0;
-
 
   /** fill vbits vector from heap & stack of hypothesis **/
   heap_traceback(vbits, &vbits_size);
@@ -825,31 +775,29 @@ __dma_aligned heap_ptr_type dbgPtr[200];
 #endif
 
 /**
- * @brief DPU HEDGES decoder entry point 
- * 
- * @param limit 
- * @param nmessbits 
- * @param input_codetext 
+ * @brief DPU HEDGES decoder entry point
+ *
+ * @param limit
+ * @param nmessbits
+ * @param input_codetext
  * @return
  */
-int main()
-{
-
+int main() {
 
   barrier_wait(&barrier);
-  
-  if (me() == 0)
-  {
+
+  if (me() == 0) {
     assert((sizeof(hypothesis) % 8) == 0);
 
-    if (perf_type == 2)
-    {
+    if (perf_type == 2) {
+#if (ENABLE_DPU_PRINT == 1)
       printf("[HEDGES][DECODER][PERFCOUNTER] INSTRUCTIONS\n");
+#endif
       perfcounter_config(COUNT_INSTRUCTIONS, true);
-    }
-    else
-    {
+    } else {
+#if (ENABLE_DPU_PRINT == 1)
       printf("[HEDGES][DECODER][PERFCOUNTER] CYCLES\n");
+#endif
       perfcounter_config(COUNT_CYCLES, true);
     }
   }
@@ -861,24 +809,24 @@ int main()
   heap_init(&hypothesis_heap, HEAP_MAX_ITEM, hypothesis_heap_buffer);
   barrier_wait(&barrier);
 
-  if (me() == 0)
-  {
-    reward_ = DOUBLE_TO_FP(_reward);
-    substitution_ = DOUBLE_TO_FP(_substitution);
-    deletion_ = DOUBLE_TO_FP(_deletion);
-    insertion_ = DOUBLE_TO_FP(_insertion);
-    dither_ = DOUBLE_TO_FP(_dither);
+  if (me() == 0) {
+    reward_ = FLOAT_TO_FP(_reward);
+    substitution_ = FLOAT_TO_FP(_substitution);
+    deletion_ = FLOAT_TO_FP(_deletion);
+    insertion_ = FLOAT_TO_FP(_insertion);
+    dither_ = FLOAT_TO_FP(_dither);
 
+#if (ENABLE_DPU_PRINT == 1)
     printf("[HEDGES][DECODER][QUANT] reward        %d\n", reward_);
     printf("[HEDGES][DECODER][QUANT] substitution  %d\n", substitution_);
     printf("[HEDGES][DECODER][QUANT] deletion      %d\n", deletion_);
     printf("[HEDGES][DECODER][QUANT] insertion     %d\n", insertion_);
     printf("[HEDGES][DECODER][QUANT] dither        %d\n", dither_);
+#endif
 
     xitf.init(&xitf, xferitf_buffer);
 
-    if (first_run)
-    {
+    if (first_run) {
       /**
        * Global init of buddy allocator (used by xferItf)
        * **/
@@ -953,10 +901,10 @@ int main()
        * if host debugging mode is activated
        * **/
 #if (ENABLE_HEAP_HOST_DEBUGGING == 1)
-        printf(" PUSH HEAP TO HOST\n");
-        uint64_t heap_shapes[2] = {1, HLIMIT};
-        xitf.pushTensor2dUINT64(&xitf, &O_scores, heap_shapes);
-        xitf.pushTensor2dUINT64(&xitf, &O_ptr, heap_shapes);
+      printf(" PUSH HEAP TO HOST\n");
+      uint64_t heap_shapes[2] = {1, HLIMIT};
+      xitf.pushTensor2dUINT64(&xitf, &O_scores, heap_shapes);
+      xitf.pushTensor2dUINT64(&xitf, &O_ptr, heap_shapes);
 #endif
 
       first_run = 1;
@@ -967,7 +915,11 @@ int main()
       nb_cycles_io[me()] += perfcounter_get() - start_time_;
 #endif
   }
-  printf("[HEDGES][DECODER][INFO] tasklet %u: stack_size  %u Byte\n", me(), check_stack());
+
+#if (ENABLE_DPU_PRINT == 1)
+  printf("[HEDGES][DECODER][INFO] tasklet %u: stack_size  %u Byte\n", me(),
+         check_stack());
+#endif
 
   barrier_wait(&barrier);
   uint32_t tasklet_current_packet_index;
@@ -982,8 +934,7 @@ int main()
   /**
    * @brief decode packet per packet
    **/
-  do
-  {
+  do {
     get_next_packet_index(&tasklet_current_packet_index);
     if (tasklet_current_packet_index >= total_packet)
       break;
@@ -993,18 +944,18 @@ int main()
 #if (MESURE_PERF == 1)
   if (perf_type)
     nb_cycles_decode[me()] += perfcounter_get() - start_time;
-#endif
 
-  if (perf_type)
-  {
+  if (perf_type) {
     total_cycles[me()] += perfcounter_get() - start_time_;
   }
 
+#endif
 
-  nb_cycles_total = perfcounter_get() ;
+  nb_cycles_total = perfcounter_get();
 
-  printf("nb_cycles_total() %lu\n", perfcounter_get() );
+#if (ENABLE_DPU_PRINT == 1)
+  printf("nb_cycles_total() %lu\n", perfcounter_get());
+#endif
 
   return 0;
 }
-

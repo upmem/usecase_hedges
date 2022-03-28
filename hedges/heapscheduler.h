@@ -10,6 +10,13 @@ HeapScheduler<> myheap;  // (equivalent to <Doub,void*>, actually)
 myheap.push(time);
 timeval = myheap.pop();
 */
+typedef int32_t heap_score_type;
+typedef uint32_t heap_ptr_type;
+
+#define FLOAT_TO_FP(i) (heap_score_type)((float)(i) * ((float)(1 << DECODER_QUANT_FRAC_BITS)))
+#define FP_TO_FLOAT(i) (float)((float)(i) / ((float)(1 << DECODER_QUANT_FRAC_BITS)))
+#define HEAP_SCORE_MAX_VAL_FLOAT 32767
+
 
 template <class T = Doub, class U = void *>
 struct HeapScheduler
@@ -22,24 +29,30 @@ public:
 	NRvector<T> ar; // times
 	NRvector<U> br; // "cargo"
 
-	HeapScheduler() : bigval(numeric_limits<T>::max()), ps(defaultps), ks(0), ar(ps, bigval), br(ps) {}
+	HeapScheduler() : bigval(HEAP_SCORE_MAX_VAL_FLOAT), ps(defaultps), ks(0), ar(ps, bigval), br(ps) {}
 	void push(T time, U cargo = U(NULL))
 	{
 		// lengthen list, add to end, sift up
 		// pushes a time and cargo onto the heap
+		int32_t ark, armo;
 		Int k, mo;
 		if (ks == ps)
 			resizear(2 * ps);
-		// printf("[heap push] score %lf , ptr %lu \n", time, cargo);
+
 		k = ks++;
 		ar[k] = time;
 		br[k] = cargo;
-		while (k > 0 && ar[mo = (k - 1) / 2] > ar[k])
+		mo = (k - 1) / 2;
+		ark = FLOAT_TO_FP(ar[k]);
+		armo = FLOAT_TO_FP(ar[mo]);
+		while (k > 0 && armo > ark)
 		{
-			// printf("[SWAP] %lu %lu \n", k, mo);
 			SWAP(ar[k], ar[mo]); // swap with mother
 			SWAP(br[k], br[mo]);
 			k = mo;
+			mo = (k - 1) / 2;
+			ark = FLOAT_TO_FP(ar[k]);
+			armo = FLOAT_TO_FP(ar[mo]);
 		}
 	}
 	uint64_t size()
@@ -55,8 +68,8 @@ public:
 		Int k = 0, rdau, ldau, mindau;
 		T ans = ar[0];
 		U cans = br[0];
-		//	printf("[HOST][IN HEAP POP ] pos : %lu \n", cans);
 
+		int32_t ark, arr, arl, mindauu;
 		if ((ks--) > 0)
 		{
 			ar[0] = ar[ks];
@@ -66,8 +79,12 @@ public:
 			while ((ldau = 2 * k + 1) < ks)
 			{
 				rdau = ldau + 1; // might be a bigval, but that is OK
-				mindau = (ar[ldau] < ar[rdau] ? ldau : rdau);
-				if (ar[k] > ar[mindau])
+				ark = FLOAT_TO_FP(ar[k]);
+				arr = FLOAT_TO_FP(ar[rdau]);
+				arl = FLOAT_TO_FP(ar[ldau]);
+				mindau = (arl < arr ? ldau : rdau);
+				mindauu = FLOAT_TO_FP( ar[mindau]);
+				if (ark > mindauu)
 				{
 					// printf("[SWAP] %lu %lu \n", k, mindau);
 					SWAP(ar[k], ar[mindau]); // swap with smaller of two daughters

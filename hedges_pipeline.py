@@ -588,9 +588,10 @@ for ipacket in range(npackets):
     if test_dpu_decoder:
         (dpacket_dpu, epacket_dpu, baddecodes_dpu, erasures_dpu) = dnatomess_dpu(
             obspack,  dpacket, cpu_time)  # decode the strands
-        print"host res (real packet) =>", dpacket
-        print"dpu  res (real packet) =>", dpacket_dpu
+        # print"host res (real packet) =>", dpacket
+        # print"dpu  res (real packet) =>", dpacket_dpu
 
+        # print(dpacket - dpacket_dpu)
         mse = sum(abs(dpacket_dpu - dpacket)**2)
         print '[HEDGES][DECODER][PACKET][NSTRANDS (WITH FAKE FOR PERF)=', dpu_fake_packet_mul_factor * dnapack.shape[0], ']', mse
         print "[HEDGES][ENCODER][MSE (CPU - DPU)]", mse
