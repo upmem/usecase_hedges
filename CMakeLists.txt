@@ -5,7 +5,7 @@ include(dpu.cmake)
 # number of DPU (WARNING : NRpyDNACode support only one DPU in the current state
 set(NR_DPUS 1)
 # number of TASKLETS for each DPU
-set(NR_TASKLETS 20)
+set(NR_TASKLETS 11)
 # STATIC DPU BUFFER SIZE for HOST/DPU Tensor xfer
 set(HOSTDPU_XFER_BUFFER_SIZE_LOG2_BYTE 19)
 # stack size for each DPU
