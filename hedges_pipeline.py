@@ -24,19 +24,21 @@ test_dpu_decoder = 1
 test_dpu_statistics = 0
 dpu_profiling = 1
 
+if dpu_profiling == 1:
+    assert (test_dpu_decoder == 1) 
 
 coderates = array([NaN, 0.75, 0.6, 0.5, 1./3., 0.25, 1./6.]
                   )  # table of coderates 1..6
 
 # user-settable parameters for this test
 coderatecode = 3  # test this coderate in coderaetes table above
-npackets = 1  # number of packets (of 255 strands each) to generate and test)
+npackets = 10  # number of packets (of 255 strands each) to generate and test)
 totstrandlen = 200  # total length of DNA strand
 
 strandIDbytes = 2  # ID bytes each strand for packet and sequence number
 strandrunoutbytes = 2  # confirming bytes end of each strand (see paper)
 
-dpu_fake_packet_mul_factor = 2
+dpu_fake_packet_mul_factor = 1 
 maxpacket = 1000
 hlimit = 45000  # maximum size of decode heap, see pape
 leftprimer = "TCGAAGTCAGCGTGTATTGTATG"
@@ -577,7 +579,7 @@ for ipacket in range(npackets):
     # print summary line
     Totalbads += array([baddecodes, erasures, tot_detect, max_detect,
                        tot_bytes, tot_uncorrect, max_uncorrect, toterrcodes, badbytes])
-    print("[CPU] packet %3d: (bad Decode : %3d, reasures : %3d, tot_detect :\
+    print("[CPU] packet %3d: (bad Decode : %3d, ereasures : %3d, tot_detect :\
 %3d, max_detect : %3d) ( tot_bytes %3d , tot_uncorrect : %3d, max_uncorrect : \
 %3d, totercodes : %3d, badbytes : %3d)" % (ipacket,
                                            baddecodes, erasures, tot_detect, max_detect, tot_bytes, tot_uncorrect,
@@ -586,19 +588,17 @@ for ipacket in range(npackets):
     print("packet OK" if badbytes == 0 else "packet NOT ok")
 
     if test_dpu_decoder:
-        (dpacket_dpu, epacket_dpu, baddecodes_dpu, erasures_dpu) = dnatomess_dpu(
+        (dpacket_, epacket_, baddecodes_, erasures_) = dnatomess_dpu(
             obspack,  dpacket, cpu_time)  # decode the strands
-        # print"host res (real packet) =>", dpacket
-        # print"dpu  res (real packet) =>", dpacket_dpu
 
-        # print(dpacket - dpacket_dpu)
-        mse = sum(abs(dpacket_dpu - dpacket)**2)
+        # print(dpacket - dpacket_)
+        mse = sum(abs(dpacket_ - dpacket)**2)
         print '[HEDGES][DECODER][PACKET][NSTRANDS (WITH FAKE FOR PERF)=', dpu_fake_packet_mul_factor * dnapack.shape[0], ']', mse
         print "[HEDGES][ENCODER][MSE (CPU - DPU)]", mse
-        # assert(mse == 0)
+        assert(mse == 0)
 
         (cpacket_, tot_detect_, tot_uncorrect_, max_detect_, max_uncorrect_,
-         toterrcodes_) = correctmesspacket(dpacket_dpu, epacket_dpu)
+         toterrcodes_) = correctmesspacket(dpacket_, epacket_)
 
         # check against ground truth
         messcheck_ = extractplaintext(cpacket_)
@@ -607,12 +607,12 @@ for ipacket in range(npackets):
         tot_bytes_ = size(messcheck_)
 
         # print summary line
-        Totalbads_ += array([baddecodes_dpu, erasures_dpu, tot_detect_, max_detect_,
+        Totalbads_ += array([baddecodes_, erasures_, tot_detect_, max_detect_,
                              tot_bytes_, tot_uncorrect_, max_uncorrect_, toterrcodes_, badbytes_])
-        print("[DPU] packet %3d: (bad Decode : %3d, reasures : %3d, tot_detect :\
+        print("[DPU] packet %3d: (bad Decode : %3d, ereasures : %3d, tot_detect :\
 %3d,     max_detect : %3d) ( tot_bytes %3d, tot_uncorrect : %3d, max_uncorrect : \
 %3d,     totercodes : %3d, badbytes : %3d)" % (ipacket,
-                                               baddecodes_dpu, erasures_dpu, tot_detect_, max_detect_, tot_bytes_, tot_uncorrect_,
+                                               baddecodes_, erasures_, tot_detect_, max_detect_, tot_bytes_, tot_uncorrect_,
                                                max_uncorrect_, toterrcodes_, badbytes_)),
 
         print("[DPU] packet OK" if badbytes_ == 0 else "packet NOT ok")
@@ -630,10 +630,3 @@ print("[END][CPU] (baddecodes %4d, erasures %4d, tot_detect %4d, max_detect %4d)
 tot_badbytes = Totalbads[8]
 tot_bytes = Totalbads[4]
 print "[END][CPU] DNA Perr {} , byteErrorRate {:.2e}".format(Perr, 1.0*tot_badbytes/tot_bytes)
-
-if test_dpu_decoder:
-    print("[END][DPU] all packets OK" if not badpackets_ else "some packets had errors!")
-    print("[END][DPU] TOT: (baddecodes %4d, erasures %4d, tot_detect %4d, max_detect %4d) ( totbytes %4d , tot_uncorect %4d, max_uncorect %4d, toterrcodes %4d, badbytes %4d)" % tuple(Totalbads_))
-    tot_badbytes_ = Totalbads_[8]
-    tot_bytes_ = Totalbads_[4]
-    print "[END][DPU] DNA Perr {} , byteErrorRate {:.2e}".format(Perr, 1.0*tot_badbytes_/tot_bytes_)
