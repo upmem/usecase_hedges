@@ -22,10 +22,10 @@ import csv
 test_dpu_encoder = 0
 test_dpu_decoder = 1
 test_dpu_statistics = 0
-dpu_profiling = 1
+dpu_profiling = 0
 
 if dpu_profiling == 1:
-    assert (test_dpu_decoder == 1) 
+    assert (test_dpu_decoder == 1)
 
 coderates = array([NaN, 0.75, 0.6, 0.5, 1./3., 0.25, 1./6.]
                   )  # table of coderates 1..6
@@ -38,9 +38,9 @@ totstrandlen = 200  # total length of DNA strand
 strandIDbytes = 2  # ID bytes each strand for packet and sequence number
 strandrunoutbytes = 2  # confirming bytes end of each strand (see paper)
 
-dpu_fake_packet_mul_factor = 1 
+dpu_fake_packet_mul_factor = 1
 maxpacket = 1000
-hlimit = 45000  # maximum size of decode heap, see pape
+hlimit = 44500  # maximum size of decode heap, see pape
 leftprimer = "TCGAAGTCAGCGTGTATTGTATG"
 # for direct right appending (no revcomp)
 rightprimer = "TAGTGAGTGCGATTAAGCGTGTT"

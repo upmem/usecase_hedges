@@ -5,7 +5,7 @@ include(dpu.cmake)
 # number of DPU (WARNING : NRpyDNACode support only one DPU in the current state
 set(NR_DPUS 1)
 # number of TASKLETS for each DPU
-set(NR_TASKLETS 11)
+set(NR_TASKLETS 20)
 # STATIC DPU BUFFER SIZE for HOST/DPU Tensor xfer
 set(HOSTDPU_XFER_BUFFER_SIZE_LOG2_BYTE 19)
 # stack size for each DPU
@@ -31,7 +31,7 @@ set(MESURE_BW 1)
 set(DECODER_QUANT_FRAC_BITS 16)
 
 # HEAP_MAX_ITEM gives the maximum number of hypothesis
-set(HEAP_MAX_ITEM 50000)
+set(HEAP_MAX_ITEM 45000)
 
 # bits buffer, and uncoded bit buffer. Theses two buffer
 # are declared in TASKLET stack, so we must limit its size
