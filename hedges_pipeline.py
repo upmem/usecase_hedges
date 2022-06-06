@@ -61,10 +61,10 @@ rightprimer = "TAGTGAGTGCGATTAAGCGTGTT"
 # this test generates substitution, deletion, and insertion errors
 # sub,del,ins rates to simulate (as multiple of our observed values):
 #(srate, drate, irate) = 1.5 * array([0.0238, 0.0082, 0.0059])
-# (srate, drate, irate) = 1.5 * array([0.0207, 0.0063, 0.0039])
+(srate, drate, irate) = 1.5 * array([0.0207, 0.0063, 0.0039])
 
 # real use case
-#(srate, drate, irate) = array([0.02, 0.03, 0.01])
+# (srate, drate, irate) = array([0.02, 0.03, 0.01])
 
 # set parameters for DNA constrants (normally not changed, except for no constraint)
 max_hpoly_run = 4  # max homopolymer length allowed (0 for no constraint)
