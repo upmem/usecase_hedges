@@ -1,5 +1,5 @@
 ## usecase_dnastorage
-DNA storage error-correcting code pipeline (inner HEDGES, outer RS/LDPC) running on UPMEM PIMM DPU.
+DNA storage error-correcting code pipeline (inner -> HEDGES, outer -> RS (Reed-Solomon)) running on UPMEM PIMM DPU.
 
 It is based on (2004821117, https://www.pnas.org/doi/full/10.1073/pnas.2004821117), the original HEDGES Research
 Article. (Williamm H.Press, John A.Hawkins and all, Texas University, June 6, 2020).
