@@ -1,3 +1,17 @@
+/**
+ * @file NRpyRS.cpp
+ * @brief nr3python C++ wrapper functions/class for HEDGES outer level pipeline stages
+ * @brief host side common Header file (CPU side)
+ *        # original project #
+ *        Based on original HEDGES project
+ *        HEDGES Error-Correcting Code for DNA Storage Corrects Indels and
+ *        Allows Sequence Constraints.
+ *        William H. Press, John A. Hawkins, Stephen Knox Jones Jr,
+ *        Jeffrey M. Schaub, Ilya J. Finkelstein
+ *        submitted to Proceedings of the National Academy of Sciences.
+ * @copyright 2022 UPMEM
+ */
+
 #include "nr3python.h"
 #include "ran.h"
 #include "reed_solomon_schifra.h"
@@ -88,7 +102,7 @@ static PyObject *makeerrors(PyObject *self, PyObject *pyargs)
     return NRpyObject(codeword);
 }
 
-// standard boilerplate
+/* standard boilerplate */
 static PyMethodDef NRpyRS_methods[] = { { "rsencode", rsencode, METH_VARARGS, "codetext = rsencode(uint8_array_length_255)" },
     { "rsdecode", rsdecode, METH_VARARGS,
         "(decoded, errs_detected, errs_corrected, err_code, recoverable) = rsdecode(uint8_array_length_255[, VecInt "

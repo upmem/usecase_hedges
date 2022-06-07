@@ -1,3 +1,17 @@
+/*
+ * @file dpu_hedges_decoder.c
+ * @author Dimitri Gerin (dgerin@upmem.com)
+ * @brief HEDGES inner decoder scoring heap DPU implementation
+ *        # original project #
+ *        Based on original HEDGES project
+ *        HEDGES Error-Correcting Code for DNA Storage Corrects Indels and
+ *        Allows Sequence Constraints.
+ *        William H. Press, John A. Hawkins, Stephen Knox Jones Jr,
+ *        Jeffrey M. Schaub, Ilya J. Finkelstein
+ *        submitted to Proceedings of the National Academy of Sciences.
+ * @copyright 2022 UPMEM
+ */
+
 #include "heap.h"
 #include <alloc.h>
 #include <assert.h>
@@ -16,7 +30,7 @@
 
 /**
  * @brief section performances counters
- * **/
+ */
 #if defined(MESURE_PERF)
 __host perfcounter_t nb_cycles_total = 0;
 __host perfcounter_t nb_cycles_hypcompute[NR_TASKLETS] = { 0 };
@@ -31,7 +45,7 @@ __host perfcounter_t total_cycles[NR_TASKLETS] = { 0 };
 
 /**
  * @brief bandwidth counters
- * **/
+ */
 #ifdef MESURE_BW
 __host uint64_t nb_bytes_loaded[NR_TASKLETS] = { 0 };
 __host uint64_t nb_bytes_written[NR_TASKLETS] = { 0 };
@@ -39,22 +53,21 @@ __host uint64_t nb_bytes_written[NR_TASKLETS] = { 0 };
 
 /**
  * @brief representation of HEDGES decoding hypothesis
- *
- * **/
+ */
 typedef struct hypothesis {
-    /** next char in message **/
+    /* next char in message */
     Int offset;
-    /** my position in the decoded message (0,1,...) **/
+    /* my position in the decoded message (0,1,...) */
     Int seq;
-    /** last decoded up to now **/
+    /* last decoded up to now */
     Mbit messagebit;
-    /** corresponding salt values **/
+    /* corresponding salt values */
     Ullong prevbits, salt, newsalt;
-    /** precedent code */
+    /* precedent code */
     GF4reg prevcode;
-    /** cumulated score **/
+    /* cumulated score */
     heap_score_type score;
-    /** index of predecessor in hypostackp **/
+    /* index of predecessor in hypostackp */
     Int predi;
 } hypothesis;
 
@@ -65,7 +78,7 @@ __dma_aligned GF4reg acgtacgt;
  *
  * @param h
  * @return
- * **/
+ */
 void hypothesis_init_root(hypothesis *h)
 {
     h->predi = -1;
@@ -81,41 +94,41 @@ void hypothesis_init_root(hypothesis *h)
 
 /**
  * @brief tasklet wise stack of hypothesis
- * **/
+ */
 __mram_noinit uint8_t hypothesis_stack[NR_TASKLETS][XFER_MEM_ALIGN(sizeof(hypothesis) * HEAP_MAX_ITEM)];
 
 /**
  * @brief tasklet wise heao of referenced hypothesis
- * **/
+ */
 __dma_aligned heap hypothesis_heap;
 __mram_noinit uint8_t hypothesis_heap_buffer[NR_TASKLETS * XFER_MEM_ALIGN(sizeof(item) * HEAP_MAX_ITEM)];
 __dma_aligned uint64_t heap_pos[NR_TASKLETS];
 __dma_aligned uint64_t heap_pos_final[NR_TASKLETS];
 __dma_aligned uint64_t nhypo[NR_TASKLETS];
 
-/** first DPU run reference counter **/
+/* first DPU run reference counter */
 __host uint64_t first_run = 1;
-/** persistant xferIft offset snapshot **/
+/* persistant xferIft offset snapshot */
 __host uint64_t xferOffset;
-/** host accessible NR_TASKLETS value **/
+/* host accessible NR_TASKLETS value */
 __host uint64_t nr_tasklets = NR_TASKLETS;
 
 /**
  * @brief HOST/DPU xferItf MRAM buffer
- * **/
+ */
 __mram_noinit uint8_t xferitf_buffer[1 << HOSTDPU_XFER_BUFFER_SIZE_LOG2_BYTE];
 
 __host uint64_t perf_type;
 __host uint64_t perf_bw;
 __host uint64_t nmessbit;
 
-/** constants seted at programm start **/
+/* constants seted at programm start */
 Int codetextlen_g;
 
 /**
  * @brief HOST PROVIDED (only for _reward) penality values
  * defined in double and quantified at programm first_run
- * **/
+ */
 __host double _reward = -0.13;
 double _substitution = 1.;
 double _deletion = 1.;
@@ -129,11 +142,11 @@ heap_score_type dither_;
 
 /**
  * @brief HEDGES decoder parameters
- * **/
+ */
 
 /** Greedy Exhaustive Search Maximal number of hypothesis for each strand to
  * decode
- * **/
+ */
 __host Int HLIMIT;
 __host Int NSTAK;
 
@@ -163,7 +176,7 @@ __dma_aligned VecInt pattarr;
  *               of tensors.
  *               I provides a batch of strands to decode from the HOST
  *               O provides the corresponding decoded sequence of bits
- * **/
+ */
 Tensor2d I;
 Tensor2d O;
 
@@ -173,7 +186,7 @@ Tensor2d O;
  * @param dnac_ok
  * @param prev
  * @return returns
- * **/
+ */
 Int dnacallowed(Uchar *dnac_ok, GF4reg prev)
 {
     if (DNAWINDOW <= 0) {
@@ -266,7 +279,7 @@ Int dnacallowed(Uchar *dnac_ok, GF4reg prev)
  * @param seq
  * @param salt
  * @param mod
- * **/
+ */
 void hash_dna(Int *out, Ullong bits, Int seq, Ullong salt, Int mod)
 {
 #if defined(MESURE_PERF)
@@ -282,18 +295,15 @@ void hash_dna(Int *out, Ullong bits, Int seq, Ullong salt, Int mod)
     Ullong div;
     Ullong ret_;
 
-    /** op: (% mod) with mod from 0 to 4 **/
-    if (mod == 4) {
-        div = ret >> 2;
-        ret_ = ret - (div << 2);
-    } else if (mod == 2) {
-        div = ret >> 1;
-        ret_ = ret - (div << 1);
-    } else if (mod == 1) {
+    /* op: (% mod) with mod from 0 to 4 */
+    if (mod == 4)
+        ret_ = ret & 3;
+    else if (mod == 2)
+        ret_ = ret & 1;
+    else if (mod == 1)
         ret_ = ret;
-    } else {
+    else
         ret_ = ret % mod;
-    }
 
     *out = (Int)(ret_);
 #if defined(MESURE_PERF)
@@ -306,7 +316,7 @@ void hash_dna(Int *out, Ullong bits, Int seq, Ullong salt, Int mod)
  * @brief  Computes the message len from vbits mapping patern.
  * @param nmb
  * @return Int
- * **/
+ */
 Int vbitlen(Int nmb)
 {
     Int ksize, nn = 0;
@@ -327,7 +337,7 @@ Int vbitlen(Int nmb)
  * @param vbits
  * @param nmessbits
  * @param vbits_size
- * **/
+ */
 void packvbits(Uchar *packed_bytes, Uchar *vbits, uint64_t nmessbits, uint64_t vbits_size)
 {
     Int i, j, k, k1;
@@ -335,13 +345,13 @@ void packvbits(Uchar *packed_bytes, Uchar *vbits, uint64_t nmessbits, uint64_t v
     uint64_t nn;
     assert(vbits_size <= MAX_DECODED_VBITS);
 
-    /** number of bits **/
+    /* number of bits */
     for (k = 0; k < vbits_size; k++)
         nn += pattarr[k];
-    /** no more than the specified number of bits **/
+    /* no more than the specified number of bits */
     nn = MIN(nn, nmessbits);
     nn = nmessbits;
-    /** number of bytes **/
+    /* number of bytes */
     uint64_t nbytes = (nn + 7) / 8;
 
     i = j = 0;
@@ -359,7 +369,7 @@ void packvbits(Uchar *packed_bytes, Uchar *vbits, uint64_t nmessbits, uint64_t v
             break;
     }
 }
-/** interface for Tensor and generic data HOST/DPU xfer **/
+/* interface for Tensor and generic data HOST/DPU xfer */
 xferItf xitf = XFERITF_INIT();
 
 void hypothesis_load(__dma_aligned hypothesis *cache, uint32_t pos)
@@ -382,7 +392,7 @@ void hypothesis_store(__dma_aligned hypothesis *cache, uint32_t pos)
 
 /**
  * @brief global reset of all hypothesis structures
- **/
+ */
 void reset_hypothesis()
 {
     __dma_aligned heap_ptr_type zero = 0;
@@ -392,7 +402,7 @@ void reset_hypothesis()
     hypothesis_init_root(&cached_h);
     hypothesis_store(&cached_h, 0);
 
-    /** set nhypo to 1 element **/
+    /* set nhypo to 1 element */
     nhypo[me()] = 1;
     hypothesis_heap.heap_pos[me()] = 0;
 
@@ -411,7 +421,7 @@ void reset_hypothesis()
  * @param skew
  * @param input_codetext
  * @return Int
- * **/
+ */
 Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_aligned Uchar *input_codetext)
 {
 #if defined(MESURE_PERF)
@@ -431,7 +441,7 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
         start_time__ = perfcounter_get();
 #endif
 
-    /** load precedent hypothesis */
+    /* load precedent hypothesis */
     __dma_aligned hypothesis hp;
     hypothesis_load(&hp, pred);
 
@@ -448,7 +458,7 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
 
     Uchar dnac_ok[4];
     h->predi = pred;
-    /** variable number */
+    /* variable number */
     h->messagebit = mbit;
     h->seq = hp.seq + 1;
     if (h->seq > ENCODER_STACK_MAXSEQ_DPU_NBYTES)
@@ -460,10 +470,10 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
         mysalt = primersalt[h->seq];
     } else if (h->seq < NSP) {
         mysalt = h->salt;
-        /** variable bits overlap, but that's ok with XOR **/
+        /* variable bits overlap, but that's ok with XOR */
         h->newsalt = ((hp.newsalt << 1) & saltmask) ^ h->messagebit;
     } else if (h->seq == NSP) {
-        /** update salt value **/
+        /* update salt value */
         mysalt = h->salt = hp.newsalt;
     } else
         mysalt = h->salt;
@@ -471,7 +481,7 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
     if (h->offset >= codetextlen_g)
         return 0;
 
-    /** calculate predicted message under this hypothesis **/
+    /* calculate predicted message under this hypothesis */
     h->prevcode = hp.prevcode;
     mod = (h->seq < LPRIMER ? 4 : dnacallowed(dnac_ok, h->prevcode));
 
@@ -490,20 +500,20 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
     regout = (regout + (Uchar)(h->messagebit)) % mod;
     regout = (h->seq < LPRIMER ? regout : dnac_ok[regout]);
     h->prevbits = ((hp.prevbits << nbits) & prevmask) | h->messagebit;
-    /** variable number **/
+    /* variable number */
     h->prevcode = ((h->prevcode << 2) | regout) & dnawinmask;
 
-    /** deletion **/
+    /* deletion */
     if (skew < 0) {
         mypenalty = deletion_;
     } else {
-        /** the only place where a check is possible!  **/
+        /* the only place where a check is possible!  */
         discrep = (regout == input_codetext[h->offset]);
-        /** substitution of error free **/
+        /* substitution of error free */
         if (skew == 0)
             mypenalty = (discrep ? reward_ : substitution_);
         else {
-            /** inserion **/
+            /* inserion */
             mypenalty = insertion_ + (discrep ? reward_ : substitution_);
         }
     }
@@ -513,14 +523,14 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
         nb_cycles_penality[me()] += perfcounter_get() - start_time_____;
 #endif
 
-    /** NOTE : dont't understant why this code does.
+    /* NOTE : dont't understant why this code does.
      * It adds a randomly signed zero -0./+O.
      * TOTO : understand the impact of this step
      * in the scoring.
      *
      * if (dither > 0.)
      *  mypenalty += dither * (2. * ran_double() - 1.);
-     * **/
+     * */
     h->score = hp.score + mypenalty;
 
 #if defined(MESURE_PERF)
@@ -539,7 +549,7 @@ Int init_from_predecessor(hypothesis *h, Int pred, Mbit mbit, Int skew, __dma_al
  * @param nmessbits
  * @param input_codetext
  * @return
- * **/
+ */
 void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
 {
     Int seq, nguess, qqmax = -1, ofmax = -1, seqmax = vbitlen(nmessbits);
@@ -550,38 +560,38 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
     __dma_aligned item new_heap_item;
     uint8_t errcode = 0;
     while (true) {
-        /**
+        /*
          * pop heap -> gives best curscore and its associated
          * hypothesis position (hypothesis stack)
-         * **/
+         * */
         bool nemptyheap = heap_pop(&hypothesis_heap, &cur_heap_item, perf_type);
 
         assert(nemptyheap && "pop empty heap");
 
-        /** load hypothesis from stack **/
+        /* load hypothesis from stack */
         hypothesis_load(&hp, cur_heap_item.ptr);
 
         seq = hp.seq;
         assert(seq < ENCODER_STACK_MAXSEQ_DPU_NBYTES && "heap_mining: MAXSEQ too small");
 
-        /** i.e., 1, 2, or 4 **/
+        /* i.e., 1, 2, or 4 */
         nguess = 1 << pattarr[seq + 1];
-        /** keep track of farthest gotten to **/
+        /* keep track of farthest gotten to */
         if (hp.offset > ofmax) {
             ofmax = hp.offset;
             qqmax = cur_heap_item.ptr;
         }
-        /** heap is empty **/
+        /* heap is empty */
         if (cur_heap_item.score > FLOAT_TO_FP(HEAP_SCORE_MAXVAL_FLOAT))
             break;
-        /** errcode 0 (nominal success) **/
+        /* errcode 0 (nominal success) */
         if (hp.offset >= limit - 1)
             break;
-        /** ditto when no. of message bits specified **/
+        /* ditto when no. of message bits specified */
         if (nmessbits > 0 && seq >= seqmax - 1)
             break;
 
-        /** nhypo below gives a new position in the HEAP **/
+        /* nhypo below gives a new position in the HEAP */
         if (nhypo[me()] + 12 > HLIMIT) {
             errcode = 2;
             heap_pos_final[me()] = qqmax;
@@ -597,7 +607,7 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
         //     NRpyException("resize of hypostack failed");
         // }
 
-        /** sequential computing of each kind of Hypothesis, for each bits error free hypothesis **/
+        /* sequential computing of each kind of Hypothesis, for each bits error free hypothesis */
         for (mbit = 0; mbit < nguess; mbit++) {
             if (init_from_predecessor(&new_hp, cur_heap_item.ptr, mbit, 0, input_codetext)) {
                 new_heap_item.score = new_hp.score;
@@ -608,7 +618,7 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
                 nhypo[me()]++;
             }
         }
-        /** deletion error hypothesis **/
+        /* deletion error hypothesis */
         for (mbit = 0; mbit < nguess; mbit++) {
             if (init_from_predecessor(&new_hp, cur_heap_item.ptr, mbit, -1, input_codetext)) {
                 new_heap_item.score = new_hp.score;
@@ -619,7 +629,7 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
                 nhypo[me()]++;
             }
         }
-        /** insertion error hypothesis **/
+        /* insertion error hypothesis */
         for (mbit = 0; mbit < nguess; mbit++) {
             if (init_from_predecessor(&new_hp, cur_heap_item.ptr, mbit, 1, input_codetext)) {
                 new_heap_item.score = new_hp.score;
@@ -641,7 +651,7 @@ void heap_mining(Int limit, Int nmessbits, __dma_aligned Uchar *input_codetext)
  * @param nmessbits
  * @param input_codetext
  * @return
- * **/
+ */
 void heap_traceback(__dma_aligned Uchar *vbits, uint64_t *traceback_size)
 {
 
@@ -649,10 +659,10 @@ void heap_traceback(__dma_aligned Uchar *vbits, uint64_t *traceback_size)
     Int nfinal = (Int)(heap_pos_final[me()]);
     Int q = nfinal;
     __dma_aligned hypothesis h;
-    /**
+    /*
      * Computes the length of the decoded bits sequence
      * starting from the heap final position.
-     * **/
+     */
     hypothesis_load(&h, q);
     while (h.predi > 0) {
         ++kk;
@@ -663,10 +673,10 @@ void heap_traceback(__dma_aligned Uchar *vbits, uint64_t *traceback_size)
     *traceback_size = kk + 1;
     q = nfinal;
     k = kk;
-    /**
+    /*
      * Copy each decoded bit of decoded sequence
      * from hypothesis stack to output array (vbits)
-     * **/
+     */
     hypothesis_load(&h, q);
     vbits[k--] = h.messagebit;
     q = h.predi;
@@ -678,11 +688,11 @@ void heap_traceback(__dma_aligned Uchar *vbits, uint64_t *traceback_size)
     }
 }
 
-/** principal tasklet barrier **/
+/* principal tasklet barrier */
 BARRIER_INIT(barrier, NR_TASKLETS);
-/** representation of curently processed packet index (TASKLET shared) **/
+/* representation of curently processed packet index (TASKLET shared) */
 uint32_t packet_index = 0;
-/** tasklet lock for packet_index RW **/
+/* tasklet lock for packet_index RW */
 MUTEX_INIT(packet_index_lock);
 
 /**
@@ -690,7 +700,7 @@ MUTEX_INIT(packet_index_lock);
  *
  * @param index
  * @return
- * **/
+ */
 void get_next_packet_index(uint32_t *index)
 {
     mutex_lock(packet_index_lock);
@@ -706,7 +716,7 @@ void get_next_packet_index(uint32_t *index)
  * @param nmessbits
  * @param input_codetext
  * @return
- * **/
+ */
 void reset_strands_packet_index()
 {
     mutex_lock(packet_index_lock);
@@ -721,13 +731,13 @@ void reset_strands_packet_index()
  * @param nmessbits
  * @param input_codetext
  * @return
- * **/
+ */
 void decode(uint32_t packet_index_)
 {
 
-    /**
+    /*
      * copy input sequence to WRAM buffer
-     * **/
+     */
     uint64_t codetext_size = I.shapes[1];
     uint64_t codetext_aligned_size_byte = sizeof(Uchar) * I.aligned_shapes[1];
 
@@ -744,21 +754,21 @@ void decode(uint32_t packet_index_)
     reset_hypothesis();
     heap_mining((Int)(codetext_size), nmessbit, input_codetext__);
 
-    /** reset vbits sequence **/
+    /* reset vbits sequence */
     uint64_t vbits_size;
     __dma_aligned Uchar vbits[MAX_DECODED_VBITS];
     for (uint64_t i = 0; i < MAX_DECODED_VBITS; i++)
         vbits[i] = 0;
 
-    /** fill vbits vector from heap & stack of hypothesis **/
+    /* fill vbits vector from heap & stack of hypothesis */
     heap_traceback(vbits, &vbits_size);
 
-    /** convert decoded vbits into regular message (decoded) bytes
+    /* convert decoded vbits into regular message (decoded) bytes
      *  Both nmessbit (complete size of the decoded message in bytes),
      *  and vbits_size (effective size of the decoded vbits) to the function.
      *  vbits_size could be < to nmessbits, in this case part of the sequence
      *  won't be filled.
-     * **/
+     */
     __dma_aligned Uchar message[ENCODER_STACK_MAXSEQ_DPU_NBYTES];
     for (uint64_t i = 0; i < ENCODER_STACK_MAXSEQ_DPU_NBYTES; i++)
         message[i] = 0;
@@ -780,14 +790,15 @@ void decode(uint32_t packet_index_)
  * @param nmessbits
  * @param input_codetext
  * @return
- * **/
+ */
 int main()
 {
 
     barrier_wait(&barrier);
 
     if (me() == 0) {
-        assert((sizeof(hypothesis) % 8) == 0);
+        /* check hypothesis memory alignment */
+        assert((sizeof(struct hypothesis) & 7) == 0);
 
         if (perf_type == 2) {
 #if (ENABLE_DPU_PRINT == 1)
@@ -805,7 +816,7 @@ int main()
     perfcounter_t start_time_;
     start_time_ = perfcounter_get();
 #endif
-    /** init hypothesis heap **/
+    /* init hypothesis heap */
     heap_init(&hypothesis_heap, HEAP_MAX_ITEM, hypothesis_heap_buffer);
     barrier_wait(&barrier);
 
@@ -827,14 +838,14 @@ int main()
         xitf.init(&xitf, xferitf_buffer);
 
         if (first_run) {
-            /**
+            /*
              * Global init of buddy allocator (used by xferItf)
-             * **/
+             */
             buddy_init(BUDDY_ALLOCATOR_SIZE_BYTE);
 
-            /**
+            /*
              * Get decoder patameters
-             * **/
+             */
             xitf.getInt(&xitf, &NPREV);
 
             xitf.getInt(&xitf, &HSALT);
@@ -858,38 +869,38 @@ int main()
             xitf.getVecUchar(&xitf, &rightprimer, &RIGHTPRIMER_LEN, mem);
             xitf.getVecUllong(&xitf, &primersalt, &PRIMERSALT_LEN, mem);
             xitf.getVecInt(&xitf, &pattarr, &PATTARR_LEN, mem);
-            /**
+            /*
              * save a snapshot of xferItf buffer Offset
-             * **/
+             */
             xitf.save(&xitf, &xferOffset);
 
-            /**
+            /*
              * restore the snapshot of xferItf buffer Offset
-             * **/
+             */
             xitf.restore(&xitf, &xferOffset);
 
-            /**
+            /*
              * reset strands Packet Index
-             * **/
+             */
             reset_strands_packet_index();
 
-            /**
+            /*
              * get encoded input sequences
              * as Tensor2d.
              * The first dim defines the number
              * independant sequences (DNA strands) to decode.
              * The second dim defines the encoded sequence lenght.
-             * **/
+             */
             xitf.getTensor2dUchar(&xitf, &I);
 
-            /**
+            /*
              * push output sequences as Tensor2d.
              * The first dim defines the number
              * independant decoded sequences.
              * The second dim defines the decoded sequence lenght.
              * NOTE : The basic elements of decoded sequences is bit,
              * but we use one byte (Uchar) to store each bit.
-             * **/
+             */
             uint64_t nmessbytes = (nmessbit + 7) / 8;
             uint64_t output_shapes[2] = { I.shapes[0], nmessbytes };
             xitf.pushTensor2dUchar(&xitf, &O, output_shapes);
@@ -911,7 +922,7 @@ int main()
 
     barrier_wait(&barrier);
     uint32_t tasklet_current_packet_index;
-    /** the total number of packet is transmited in Tensor highest dim **/
+    /* the total number of packet is transmited in Tensor highest dim */
     uint32_t total_packet = O.shapes[0];
 
 #if (MESURE_PERF == 1)
@@ -922,7 +933,7 @@ int main()
 
     /**
      * @brief decode packet per packet
-     * **/
+     */
     do {
         get_next_packet_index(&tasklet_current_packet_index);
         if (tasklet_current_packet_index >= total_packet)

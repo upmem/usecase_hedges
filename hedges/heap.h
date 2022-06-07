@@ -1,3 +1,17 @@
+/**
+ * @file heap.h
+ * @author Dimitri Gerin (dgerin@upmem.com)
+ * @brief HEDGES inner decoder scoring heap DPU implementation
+ *        # original project #
+ *        Based on original HEDGES project
+ *        HEDGES Error-Correcting Code for DNA Storage Corrects Indels and
+ *        Allows Sequence Constraints.
+ *        William H. Press, John A. Hawkins, Stephen Knox Jones Jr,
+ *        Jeffrey M. Schaub, Ilya J. Finkelstein
+ *        submitted to Proceedings of the National Academy of Sciences.
+ * @copyright 2022 UPMEM
+ */
+
 #ifndef __HEAP__
 #define __HEAP__
 
@@ -16,9 +30,7 @@ typedef uint32_t heap_ptr_type;
 
 #ifdef DPU_ENV
 
-/**
- * perf counter
- * **/
+/* perf counter */
 #if defined(MESURE_PERF) || defined(MESURE_BW)
 #include <perfcounter.h>
 #endif
@@ -49,13 +61,13 @@ typedef struct item {
 /**
  * @brief DPU heap datastructure
  *
- * **/
+ */
 typedef struct heap {
-    /** current position of the last heap element **/
+    /* current position of the last heap element */
     __dma_aligned uint32_t heap_pos[NR_TASKLETS];
-    /** items **/
+    /* items */
     __mram_ptr uint8_t *heap_items[NR_TASKLETS];
-    /** max number of element **/
+    /* max number of element */
     uint32_t size;
 } heap;
 
@@ -66,7 +78,7 @@ typedef struct heap {
  * @param size
  * @param heap_items prealocated array of item pointer
  * @return
- * **/
+ */
 void heap_init(heap *h, uint32_t size_, __mram_ptr uint8_t *heap_items)
 {
 
@@ -90,7 +102,7 @@ PROFILING_INIT(addr_compute);
  * @param h cur_pos position in the heap
  * @param it iterm pointer to fill
  * @return
- * **/
+ */
 void heap_read(heap *h, uint32_t cur_pos, __dma_aligned item *it)
 {
 
@@ -116,7 +128,7 @@ void heap_write(heap *h, uint32_t cur_pos, __dma_aligned item *it)
  * @param a position of item a
  * @param b position of item b
  * @return
- * **/
+ */
 void heap_swap(heap *h, uint32_t a, uint32_t b)
 {
     __dma_aligned item a_;
@@ -133,7 +145,7 @@ void heap_swap(heap *h, uint32_t a, uint32_t b)
  * @param it new item pointer
  * @param perf optional arg for perf measurement
  * @return
- * **/
+ */
 void heap_push(heap *h, __dma_aligned item *it, bool perf)
 {
 #if defined(MESURE_BW) && (MESURE_BW == 1)
@@ -152,7 +164,7 @@ void heap_push(heap *h, __dma_aligned item *it, bool perf)
 
     cur_pos = h->heap_pos[me()]++;
 
-    /** store score and ptr at the last position **/
+    /* store score and ptr at the last position */
     heap_write(h, cur_pos, it);
 
     assert(cur_pos < h->size);
@@ -161,13 +173,13 @@ void heap_push(heap *h, __dma_aligned item *it, bool perf)
         if (cur_pos <= 0)
             break;
 
-        /** load parent node score **/
+        /* load parent node score */
         parent_pos = (cur_pos - 1) >> 1;
         heap_read(h, parent_pos, &parent_it);
         __dma_aligned item ro;
         heap_read(h, 0, &ro);
         if (parent_it.score > (*it).score) {
-            /** swap parrent/child nodes **/
+            /* swap parrent/child nodes */
             heap_swap(h, cur_pos, parent_pos);
             cur_pos = parent_pos;
         }
@@ -185,7 +197,7 @@ void heap_push(heap *h, __dma_aligned item *it, bool perf)
  * @param it item pointer to fill
  * @param perf optional arg for perf measurement
  * @return success
- * **/
+ */
 bool heap_pop(heap *h, __dma_aligned item *it, bool perf)
 {
 #if defined(MESURE_BW) && (MESURE_BW == 1)
@@ -216,41 +228,41 @@ bool heap_pop(heap *h, __dma_aligned item *it, bool perf)
     if (h->heap_pos[me()] == 0)
         return false;
 
-    /** assign score (poped score) at the top of the heap **/
+    /* assign score (poped score) at the top of the heap */
     heap_read(h, 0, it);
 
-    /** init end_pos at las heap decremented position **/
+    /* init end_pos at las heap decremented position */
     end_pos = --(h->heap_pos[me()]);
 
     if (end_pos > 0) {
-        /**
+        /*
          * swap end and top nodes
-         **/
+         */
         heap_swap(h, 0, end_pos);
 
-        /**
+        /*
          * assign the end nodes (score and ptr) to specific values
-         **/
+         */
         heap_write(h, end_pos, &maxitem);
-        /** NOTE : Not sure this step is necessary (only asign score value to
+        /* NOTE : Not sure this step is necessary (only asign score value to
          * bigvalue should be necessary) heap_write_ptr(end_pos, &bigval);
-         **/
+         */
 
-        /**
+        /*
          * visit heap from top to last heap position (end_pos)
          * start by left child
          * compare left and right child to select the visiting
          * direction (left or right)
-         **/
+         */
         while ((left_pos = (cur_pos << 1) + 1) < end_pos) {
-            /** read cur_score */
+            /* read cur_score */
             heap_read(h, cur_pos, &cur_item);
-            /** read left and right child */
+            /* read left and right child */
             right_pos = left_pos + 1;
             heap_read(h, left_pos, &left_item);
             heap_read(h, right_pos, &right_item);
 
-            /** find the child node with the minimal score */
+            /* find the child node with the minimal score */
             min_pos = (left_item.score < right_item.score ? left_pos : right_pos);
             min_score = (left_item.score < right_item.score ? left_item.score : right_item.score);
 

@@ -1,10 +1,9 @@
 ## usecase_dnastorage
-DNA storage error-correcting code pipeline (inner -> HEDGES, outer -> RS (Reed-Solomon)) running on UPMEM PIMM DPU.
+DNA storage error-correcting code pipeline (inner -> HEDGES, outer -> RS (Reed-Solomon)) running on UPMEM PIM DPU.
 
-It is based on (2004821117, https://www.pnas.org/doi/full/10.1073/pnas.2004821117), the original HEDGES Research
-Article. (Williamm H.Press, John A.Hawkins and all, Texas University, June 6, 2020).
+This project is based on the original HEDGES Research Article. (Williamm H.Press, John A.Hawkins and all, Texas University, June 6, 2020, https://www.pnas.org/doi/full/10.1073/pnas.2004821117).
 
-The codebase relative to 2004821117 is (https://github.com/whpress/hedges).
+The source code is based on the original HEDGES implementation (https://github.com/whpress/hedges).
 
 ```
      ____________________________________________________________
@@ -27,7 +26,7 @@ The codebase relative to 2004821117 is (https://github.com/whpress/hedges).
 The current implementation support only one DPU as it consists of a POC.
 
 ## performances summary
-(measured with 1 DPU with some estimated PIMM server with 2560 DPUs perfs)
+(measured with 1 DPU with some estimated PIM server with 2560 DPUs perfs)
 
 
 | CR    |  srate    |    drate       |  irate        | strands/DPU run      | time (sec/DPU)  | decoding throughput (seq/sec/DPU) | (estimated) decoding throughput (seq/sec/2560 DPUs) | DPU pipeline efficiency (%) |
@@ -38,10 +37,9 @@ The current implementation support only one DPU as it consists of a POC.
 
 ## usage
 
-### install dependencies (numpy1.13 + python2.7)
+### install dependencies
 
-HEDGES project is built on nr3python library which depends
-on numpy1.13 and python2.7.
+The HEDGES project is built on top of nr3python, numpy1.13 and python2.7.
 
 ```
 ./install.sh
@@ -53,7 +51,7 @@ make clean && make
 ```
 
 ### run on DPU HW
-in hedges_pipeline.py, make sure that dpu is enabled for decoding step
+In hedges_pipeline.py, make sure that the DPU mode is enabled for the decoding step.
 ```
 test_dpu_decoder = True
 ```

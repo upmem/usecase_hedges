@@ -1,3 +1,17 @@
+/**
+ * @file NRpyDNAcode.cpp
+ * @author Dimitri Gerin (dgerin@upmem.com)
+ * @brief nr3python C++ wrapper functions/class for HEDGES inner level pipeline stages
+ *        # original project #
+ *        Based on original HEDGES project
+ *        HEDGES Error-Correcting Code for DNA Storage Corrects Indels and
+ *        Allows Sequence Constraints.
+ *        William H. Press, John A. Hawkins, Stephen Knox Jones Jr,
+ *        Jeffrey M. Schaub, Ilya J. Finkelstein
+ *        submitted to Proceedings of the National Academy of Sciences.
+ * @copyright 2022 UPMEM
+ */
+
 #include "nr3python.h"
 #include "heapscheduler.h"
 #include "ran.h"
@@ -6,7 +20,7 @@
 #include <cstdint>
 #include <cstring>
 
-/**global ptr on dpus**/
+/* global ptr on dpus */
 struct dpu_set_t dpu_set;
 dpu::xferItf *xitf;
 
@@ -163,10 +177,10 @@ Doub deletion = 1.;
 Doub insertion = 1.;
 Doub dither = 0.;
 
-/**
+/*
         This group of host parameters needs to be forwarded to the DPU separately
         (not un set_dpuconstants), because here, variables comes directy from Python
-**/
+*/
 void setparams_DPU()
 {
     // Note : replaced by constant MAXSEQ_DPU in DPU code
@@ -539,10 +553,8 @@ static PyObject *messtodna_DPU(PyObject *self, PyObject *pyargs)
         xitf->push(packet_dpu);
     }
 
-    DPU_ASSERT(dpu_launch(dpu_set, DPU_ASYNCHRONOUS));
+    DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
 
-    // sync dpus and fetch results
-    dpu_sync(dpu_set);
     {
         xitf->get(encoded_packet_dpu);
         // Transfer dpu::Tensor2d to nr3python::MatUchar
@@ -947,7 +959,7 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, Int perf_type, uint64_t 
 
     assert(NR_DPUS == 1);
 
-    /** build codetext Matrix for dpu **/
+    /* build codetext Matrix for dpu */
     uint64_t codetext_packet_shapes[] = { (uint64_t)codetext.nrows(), (uint64_t)codetext.ncols() };
     dpu::Tensor2d<Uchar> codetext_packet_dpu(NR_DPUS, codetext_packet_shapes);
     {
@@ -964,13 +976,12 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, Int perf_type, uint64_t 
     DPU_ASSERT(dpu_broadcast_to(dpu_set, "perf_type", 0, &perf_type_, sizeof(uint64_t), DPU_XFER_DEFAULT));
     DPU_ASSERT(dpu_broadcast_to(dpu_set, "perf_bw", 0, &perf_type_, sizeof(uint64_t), DPU_XFER_DEFAULT));
     double start = my_clock();
-    DPU_ASSERT(dpu_launch(dpu_set, DPU_ASYNCHRONOUS));
-    /**
+    DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
+    /*
      * get decoded sequences
      * number of bytes to tranfer from DPU to HOST (decoded message)
-     * **/
+     * */
     uint64_t nmessbytes = (nmessbits + 7) / 8;
-    dpu_sync(dpu_set);
     double end = my_clock();
     host_time = end - start;
     uint64_t decoded_packet_shapes[] = { (uint64_t)codetext.nrows(), (uint64_t)nmessbytes };
@@ -980,11 +991,7 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, Int perf_type, uint64_t 
     // nr tasklets
     DPU_FOREACH (dpu_set, dpu) {
         DPU_ASSERT(dpu_copy_from(dpu, "nr_tasklets", 0, &nr_tasklets, sizeof(uint64_t)));
-    }
-
-    // retrieve DPU frequenc
-    DPU_FOREACH (dpu_set, dpu) {
-        DPU_ASSERT(dpu_copy_from(dpu, "CLOCKS_PER_SEC", 0, &clocks_per_sec, sizeof(uint32_t)));
+        break;
     }
 
     // total cycles/inst
@@ -993,8 +1000,8 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, Int perf_type, uint64_t 
         uint64_t nb_bytes_written[NR_TASKLETS];
         uint64_t nb_bytes_loaded_heap[NR_TASKLETS];
         uint64_t nb_bytes_written_heap[NR_TASKLETS];
-
         DPU_FOREACH (dpu_set, dpu) {
+            DPU_ASSERT(dpu_copy_from(dpu, "CLOCKS_PER_SEC", 0, &clocks_per_sec, sizeof(uint32_t)));
             DPU_ASSERT(dpu_copy_from(dpu, "total_cycles", 0, total_cycles, NR_TASKLETS * sizeof(uint64_t)));
             DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_pop", 0, pop_cycles, NR_TASKLETS * sizeof(uint64_t)));
             DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_push", 0, push_cycles, NR_TASKLETS * sizeof(uint64_t)));
@@ -1011,6 +1018,8 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, Int perf_type, uint64_t 
             DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_loaded", 0, &nb_bytes_loaded, NR_TASKLETS * sizeof(uint64_t)));
             DPU_ASSERT(dpu_copy_from(dpu, "nb_bytes_written", 0, &nb_bytes_written, NR_TASKLETS * sizeof(uint64_t)));
             DPU_ASSERT(dpu_copy_from(dpu, "nb_cycles_total", 0, &nb_cycles_total, sizeof(uint64_t)));
+            // pick up values only for the first DPU
+            break;
         }
         for (uint64_t i = 0; i < NR_TASKLETS; i++) {
             nbyte_written_heap += nb_bytes_written_heap[i];
@@ -1020,9 +1029,9 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, Int perf_type, uint64_t 
         }
     }
 
-    /**
+    /*
      * pack decoded bits
-     * **/
+     * */
     MatUchar pack(codetext.nrows(), nmessbytes);
     for (uint64_t dpu_index = 0; dpu_index < decoded_packet_dpu.nr_dpus; dpu_index++)
         for (uint64_t i = 0; i < decoded_packet_dpu.shapes[0]; i++)
@@ -1030,7 +1039,6 @@ MatUchar decode_DPU_(MatUchar &codetext, Int nmessbits, Int perf_type, uint64_t 
                 pack[i][j] = decoded_packet_dpu(dpu_index, i, j);
 
     if (ENABLE_DPU_PRINT) {
-        struct dpu_set_t dpu;
         DPU_FOREACH (dpu_set, dpu) {
             DPU_ASSERT(dpu_log_read(dpu, stderr));
         }
@@ -1404,11 +1412,10 @@ static PyObject *launch_dpus(PyObject *self, PyObject *pyargs)
     }
 
     struct dpu_set_t dpu;
-    DPU_ASSERT(dpu_launch(dpu_set, DPU_ASYNCHRONOUS));
+    DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
 
     // sync dpus and fetch results
     if (ENABLE_DPU_PRINT) {
-        dpu_sync(dpu_set);
         DPU_FOREACH (dpu_set, dpu) {
             DPU_ASSERT(dpu_log_read(dpu, stderr));
         }
