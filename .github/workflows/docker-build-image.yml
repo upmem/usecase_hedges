@@ -7,11 +7,11 @@ name: Create and publish a Docker image
 
 on:
   push:
-    branches: ['master']
+    branches: ['release']
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME_BASE: ${{ github.repository }}/hedges
+  IMAGE_NAME_BASE: ${{ github.repository }}
 
 jobs:
   ubuntu-bionic-image:

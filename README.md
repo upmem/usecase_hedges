@@ -1,5 +1,5 @@
-## usecase_dnastorage
-DNA storage error-correcting code pipeline (inner -> HEDGES, outer -> RS (Reed-Solomon)) running on UPMEM PIM DPU.
+## usecase_hedges
+DNA error-correcting code pipeline (inner -> HEDGES, outer -> RS (Reed-Solomon)) running on UPMEM PIM DPU.
 
 This project is based on the original HEDGES Research Article. (Williamm H.Press, John A.Hawkins and all, Texas University, June 6, 2020, https://www.pnas.org/doi/full/10.1073/pnas.2004821117).
 
@@ -8,28 +8,33 @@ The source code is based on the original HEDGES implementation (https://github.c
 ```
      ____________________________________________________________
     |   ___________      _______________      _______________    |
-    |  | synthetic |    | outer encoder |    | inner encoder |   |
-    |  | data      |--->| (R.S)         |--->| (HEDGES)      |   |
-    |  |           |    |     [CPU]     |    |   [CPU/DPU]   |   |
+    |  |           |    | outer encoder |    | inner encoder |   |
+    |  | synthetic |--->|     (R.S)     |--->|   (HEDGES)    |   |
+    |  | data      |    |     [CPU]     |    |   [CPU/DPU]   |   |
     |  |___________|    |_______________|    |_______________|   |
     |                                               |            |
     |                                          [A.C.G.T...]      |
     |                                      (encoded DNA strands) |
     |   ___________      _______________      ______|________    |
     |  | synthetic |    | outer decoder |    | inner decoder |   |
-    |  | data      |<---| (R.S)         |<---| (HEDGES)      |   |
-    |  |           |    |     [CPU]     |    |    [CPU/DPU]  |   |
+    |  | data      |<---|    (R.S)      |<---|   (HEDGES)    |   |
+    |  | decoded   |    |    [CPU]      |    |   [CPU/DPU]   |   |
     |  |___________|    |_______________|    |_______________|   |
     |____________________________________________________________|
 ```
 
-The current implementation support only one DPU as it consists of a POC.
+The current implementation supports only one DPU as it consists of a POC.
 
-## performances summary
-(measured with 1 DPU with some estimated PIM server with 2560 DPUs perfs)
+Only the **HEDGES inner decoder** has been implemented on DPU yet.
+
+Theses performances are described in the next section.
+
+## HEDGES inner decoder performances summary
+Performances with 1 DPU are measured on real HW. 
+Performances with 2560 DPUs (one server) are estimated based on the one-DPU performance, assuming linear scaling.
 
 
-| CR    |  srate    |    drate       |  irate        | strands/DPU run      | time (sec/DPU)  | decoding throughput (seq/sec/DPU) | (estimated) decoding throughput (seq/sec/2560 DPUs) | DPU pipeline efficiency (%) |
+| CR    |  srate    |    drate       |  irate        | strands/DPU run      | time (sec/DPU)  | decoding throughput with one DPU (seq/sec) | (estimated) decoding throughput with 2560 DPUs (seq/sec) | DPU pipeline efficiency (%) |
 |-------|:----------|:---------------|:--------------|:---------------------|:----------------|:---------------------------------:|:---------------------------------:|:-------------------------------:|
 | 0.5   |  0.03105  |   0.00945      |     0.00585   |  510                 |  29.72          |      17                           |      43,925                       |               69                |
 | 0.33  |  0.03105  |   0.00945      |     0.00585   |  510                 |  8.31           |      61.4                         |     157,092                       |               62                |
